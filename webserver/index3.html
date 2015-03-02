@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>PiFace Remote WebSocket</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <meta name="author" content="David Art [aka] adcomp" >
+        <link type="text/css" rel="stylesheet" href="static/rickshaw.min.css">
+        <script type="text/javascript" src="static/jquery.min.js"></script>
+        <script type="text/javascript" src="static/d3.min.js"></script> 
+        <script type="text/javascript" src="static/d3.layout.min.js"></script> 
+        <script type="text/javascript" src="static/d3.v3.js"></script> 
+        <script type="text/javascript" src="static/rickshaw.min.js"></script> 
+        <script type="text/javascript" src="static/jquery.flot.js"></script> 
+
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { text-align: center; }
+          header { font-family: sans-serif, monospace; vertical-align: middle; background: #000; background: linear-gradient(#222, #000) repeat scroll 0% 0% transparent; border-bottom: 4px solid #bd1143; padding: 8px; margin-bottom: 16px; }
+          header h1 { color: white; font-size: 32px; margin: 0; }
+          header h2 { font-size: 18px; color: #444; }
+          .piface { margin-bottom: 42px; }
+          #pi_logo { vertical-align: middle;}
+          #host { background: #bd1143;  border: 3px solid black; border-radius: 4px; padding: 4px; color: white; font-size: 18px; font-family: monospace; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .content {
+            margin: auto;
+            height: 100%;
+            width: 820px;
+        }
+
+        .wrapper {
+            margin-top: 10%;
+        }
+
+        .chart_container {
+            display: table-cell;
+            top: 50px;
+            position: relative;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        #chart {
+            float: left;
+            position: relative;
+            left: 40px;
+        }
+
+        #y_axis {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+        }
+
+        #legend {
+            display: inline-block;
+            position: absolute;
+            margin-left: 50px;
+            bottom: 0;
+        }
+
+        #map {
+            position: relative;
+            left: 40px;
+        }
+
+        #map_y_axis {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+        }
+
+        .rickshaw_legend {
+            font-family: Arial;
+            font-size: 12px;
+            color: white;
+            background: #404040;
+            display: inline-block;
+            padding: 12px 5px;
+            border-radius: 2px;
+        }
+
+        </style>
+    </head>
+   
+    <body>
+        <header>
+            <h1>MazeBuster</h1>
+            <h2>Raspberry Pi Web Interface</h2>
+        </header>
+        <div class="content">
+            <div id="con_div">
+                <label for="host">Host :</label>
+                <input type="text" id="host" value="" />
+                <input type="button" id="connect" value="connect" onclick='connect()' />
+                <input type="button" id="disconnect" value="disconnect" onclick='disconnect()' />
+            </div>
+            <div>
+                <input type="text" id="arduino_message" value="" />
+                <input type="button" id="send" value="send" onclick='send()' />
+            </div>
+            <div id="wrapper">
+                <div class="chart_container">
+                    <div id="y_axis"></div>
+                    <div id="chart"></div>
+                    <div id="legend" class="rickshaw_legend"></div>
+                </div>
+                
+            </div>
+            <!-- <div class="wrapper">
+                <div class="chart_container">
+                    <div id="map_y_axis"></div>
+                    <div id="map"></div>
+                </div>
+            </div> -->
+            <<div id="placeholder" style="width:600px;height:600px;top:70px;">
+                
+            </div>
+        </div>
+    </body>
+    <script>
+        var pivot = {
+            x: 0,
+            y: 0
+        };
+
+        var position = {
+            x: 0,
+            y: 0
+        };
+
+        var currentDirection = 0;
+        var previousDirection = 0;
+        var h = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+        var heading = 0;
+
+        var positionData = [[0, 0]];
+        var irData = [];
+
+        function getData(){
+            return [
+                {
+                    data: positionData,
+                    label: 'Position'
+                },
+                {
+                    data: irData,
+                    label: 'IR',
+                    lines:{show: false},
+                    points:{show: true},
+                }
+            ];
+        }
+
+        var maxData = 16;
+        var data = [];
+        var palette = new Rickshaw.Color.Palette();
+
+        for (var i = 0; i < maxData; i++){
+            data.push({
+                name: i,
+                color: palette.color()
+            });
+        }
+
+        var graph = new Rickshaw.Graph( {
+                element: document.querySelector("#chart"),
+                // xScale: d3.time.scale(),
+                renderer: 'line',
+                min: 'auto',
+                width: 780,
+                height: 400,
+                interpolation: 'step-after',
+                series: new Rickshaw.Series.FixedDuration(data, undefined, {
+                    timeInterval: 500,
+                    maxDataPoints: 200,
+                    timeBase: new Date().getTime() / 1000
+                }),
+                padding: {
+                    top: 0.2,
+                    bottom: 0.2,
+                    left: 0.02,
+                    right: 0.02
+                }
+        } );
+
+        var d = [{x:0, y:0}];
+
+        var options = { 
+            series: {shadowSize: 0},
+            yaxis: {min: -100,  max: 100 }, 
+            xaxis: {min: -100,  max: 100 }
+        };
+
+        var plot = $.plot($("#placeholder"), getData(), options);
+
+
+        // var mazemap = new Rickshaw.Graph( {
+        //         element: document.querySelector("#map"),
+        //         // xScale: d3.time.scale(),
+        //         renderer: 'scatterplot',
+        //         min: 'auto',
+        //         width: 780,
+        //         height: 780,
+        //         stroke: true,
+        //         series: [{
+        //             data: d,
+        //             color: 'steelblue'
+        //         }],
+        //         padding: {
+        //             top: 0.2,
+        //             bottom: 0.2,
+        //             left: 0.02,
+        //             right: 0.02
+        //         }
+        // } );
+
+        // var map_x_axis = new Rickshaw.Graph.Axis.Time( {
+        //         graph: mazemap,
+        // });
+
+        var x_axis = new Rickshaw.Graph.Axis.Time( {
+                graph: graph,
+                tickFormat: graph.x.tickFormat(),
+                pixelPerTick: 50
+        });
+
+        // var map_y_axis = new Rickshaw.Graph.Axis.Y( {
+        //         graph: mazemap,
+        //         orientation: 'left',
+        //         min: -100,
+        //         max: 100,
+        //         tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+        //         element: document.getElementById('map_y_axis'),
+        // } );
+
+        var y_axis = new Rickshaw.Graph.Axis.Y( {
+                graph: graph,
+                orientation: 'left',
+                tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+                element: document.getElementById('y_axis'),
+        } );
+
+        var hoverDetail = new Rickshaw.Graph.HoverDetail( {
+            graph: graph,
+            formatter: function(series, x, y) {
+                // var date = '<span class="date">' + new Date(x * 1000).toUTCString() + '</span>';
+                var swatch = '<span class="detail_swatch" style="background-color: ' + series.color + '"></span>';
+                var content = swatch + series.name + ": " + y;
+                return content;
+            }
+        } );
+
+        // var mapHoverDetail = new Rickshaw.Graph.HoverDetail( {
+        //     graph: mazemap,
+        //     formatter: function(series, x, y) {
+        //         // var date = '<span class="date">' + new Date(x * 1000).toUTCString() + '</span>';
+        //         var swatch = '<span class="detail_swatch" style="background-color: ' + series.color + '"></span>';
+        //         var content = swatch + x + ", " + y;
+        //         return content;
+        //     }
+        // } );
+
+        var legend = new Rickshaw.Graph.Legend({
+            graph: graph,
+            element: document.getElementById('legend')
+        });
+
+        var shelving = new Rickshaw.Graph.Behavior.Series.Toggle( {
+            graph: graph,
+            legend: legend
+        });
+
+        var ws = null;
+        function connect() {
+          var host = document.getElementById('host').value;
+          ws = new WebSocket("ws://" + host + ":8080/mazebuster");
+          ws.onmessage = function(evt) {
+            // console.log(evt.data);
+            //var piface = JSON.parse(evt.data);
+            var message = evt.data;
+            if (String(message).substring(0, 2) == '//')
+                console.log(message);
+            else if (String(message).substring(0, 2) == '..'){
+                var i = parseInt(String(message).substring(2));
+                var prevHeading = heading;
+
+                if (i == 1){
+                    heading = (heading - 1) % 4;
+                }else if (i == 2){
+                    heading = (heading + 1) % 4;
+                }
+
+                if (prevHeading != heading){
+                    pivot.x = position.x;
+                    pivot.y = position.y;
+                }
+
+                console.log("New heading: " + heading);
+            } else
+                update(message);
+          };
+          ws.onclose = function(evt) {
+            console.log("Connection close ..");
+          };
+          ws.onopen = function(evt) {
+            console.log("WebSocket open ..");
+          };
+        }
+
+        function disconnect(){
+            if (ws !== null){
+                ws.close();
+            }
+        }
+
+        var movingWindowAvg = function (arr, step) {  // Window size = 2 * step + 1
+            // return arr.map(function (_, idx) { 
+            var idx = arr.length - 1;
+            var wnd = arr.slice(Math.max(0, idx - step),  Math.min(idx + step + 1, arr.length)); 
+            var result = d3.sum(wnd) / wnd.length; if (isNaN(result)) { result = -1; }
+            return result; 
+            // });
+        };
+
+        function addData(reading){
+            var r = reading.split(" ");
+            result = {};
+            for (var i = 0; i < r.length; i++){
+                result[i] = parseFloat(r[i]);
+            }
+            // movingAvg1 = movingWindowAvg(graph.series[2].data.map(function(i){
+            //     return i.y;
+            // }), 20);
+            // movingAvg2 = movingWindowAvg(graph.series[3].data.map(function(i){
+            //     return i.y;
+            // }), 20);
+            // result[8] = movingAvg1;
+            // result[9] = movingAvg2;
+
+            var distance = result[4] / 20.0;
+
+            currentDirection = result[0];
+
+            switch(currentDirection){
+                case 0:
+                    position.x = pivot.x + h[heading][0] * distance;
+                    position.y = pivot.y + h[heading][1] * distance;
+                    break;
+                case 3:
+                    position.x = pivot.x - h[heading][0] * distance;
+                    position.y = pivot.y - h[heading][1] * distance;
+                    break;
+            }
+
+            // mazemap.series[0].data.push({
+            //     "x": position.x,
+            //     "y": position.y + 8 + result[1]
+            // });
+
+            // mazemap.series[0].data.push({
+            //     "x": position.x - 8 - result[2],
+            //     "y": position.y
+            // });
+
+            // mazemap.series[0].data.push({
+            //     "x": position.x + 8 + result[3],
+            //     "y": position.y
+            // });
+
+            // console.log(heading + " " + position.x + ", " + position.y);
+
+            // mazemap.series[0].data.push({
+            //     x: position.x,
+            //     y: position.y
+            // });
+
+            // console.log(heading + " " + position.x + ", " + position.y);
+
+            // positionData.push([position.x, position.y]);
+            // irData.push([position.x, position.y + 8 + result[1]]);
+            // irData.push([position.x - 8 - result[2], position.y]);
+            // irData.push([position.x + 8 + result[3], position.y]);
+
+            graph.series.addData(result);
+        }
+
+        function update(message) {
+            addData(message);
+            // mazemap.render();
+            // plot.setData(getData());
+            // plot.setupGrid();
+            // plot.draw();
+            // plot = $.plot($("#placeholder"), [mapData], { yaxis: { max: 50 } });
+            graph.render();
+        }
+
+        function send(){
+            var msg = document.getElementById('arduino_message').value;
+            if (ws !== null){
+                ws.send(msg);
+            }
+        }
+
+
+
+        $(document).ready(function(){
+            document.getElementById('host').value = window.location.hostname;
+            graph.render();
+            mazemap.render();
+        });
+
+        </script>
+
+    </body>
+</html>

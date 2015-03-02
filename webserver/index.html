@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mazebuster Dashboard</title>
+  <link rel="stylesheet" type="text/css" href="static/css/rickshaw.min.css" />
+  <link rel="stylesheet" type="text/css" href="static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="static/css/keen-dashboards.css" />
+
+  </style>
+</head>
+<body class="application">
+
+  <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">Mazebuster</a>
+      </div>
+      <div class="navbar-collapse collapse">
+        <div class="col-sm-3 col-md-3 pull-left">
+          <form class="navbar-form" onsubmit="return false;">
+            <div class="input-group">
+                <input type="text" id="host" class="form-control" placeholder="Host">
+                <div class="input-group-btn">
+                    <button class="btn btn-default" type="button" onclick="connect()"><i class="glyphicon glyphicon-ok"></i></button>
+                    <button class="btn btn-default" type="button" onclick="disconnect()"><i class="glyphicon glyphicon-remove"></i></button>
+                </div>
+            </div>
+          </form>
+        </div>
+        <div class="col-sm-3 col-md-3 pull-left">
+          <form class="navbar-form" onsubmit="send(); return false;">
+            <div class="input-group">
+                <input type="text" id="command" class="form-control" placeholder="Command">
+                <div class="input-group-btn">
+                    <button class="btn btn-default" type="button" onclick="send()"><i class="glyphicon glyphicon-ok"></i></button>
+                </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-1-1">
+              <img data-src="holder.js/100%x240/white/text:#grid-1-1">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+      <!-- <div class="col-sm-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+           <div class="chart-stage">
+            <div id="grid-1-2">
+              <img data-src="holder.js/100%x240/white/text:#grid-1-2">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div> -->
+    </div>
+
+    <div class="row">
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-2-1">
+              <img data-src="holder.js/100%x120/white/text:#grid-2-1">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-2-2">
+              <img data-src="holder.js/100%x120/white/text:#grid-2-2">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-2-3">
+              <img data-src="holder.js/100%x120/white/text:#grid-2-3">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+<!-- end of three -->
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-3-1">
+              <img data-src="holder.js/100%x120/white/text:#grid-3-1">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-3-2">
+              <img data-src="holder.js/100%x120/white/text:#grid-3-2">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-md-4">
+        <div class="chart-wrapper">
+          <div class="chart-title">
+            Cell Title
+          </div>
+          <div class="chart-stage">
+            <div id="grid-3-3">
+              <img data-src="holder.js/100%x120/white/text:#grid-3-3">
+            </div>
+          </div>
+          <div class="chart-notes">
+            Notes about this chart
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+    <hr>
+
+  </div>
+
+  <script type="text/javascript" src="static/js/jquery.min.js"></script>
+  <script type="text/javascript" src="static/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="static/js/d3.min.js"></script> 
+  <script type="text/javascript" src="static/js/d3.layout.min.js"></script> 
+  <script type="text/javascript" src="static/js/rickshaw.js"></script> 
+  <script type="text/javascript" src="static/js/holder.js"></script>
+  <script>
+    Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
+  </script>
+
+  <script>
+    var graphTitles = 
+      {
+        'grid-1-1': 'Motor Speed',
+        // 'grid-1-2': 'Motor PWM',
+        'grid-2-1': 'Motor PWM',
+        'grid-2-2': 'Motor Encoder Counts',
+        'grid-2-3': '',
+        'grid-3-1': '',
+        'grid-3-2': '',
+        'grid-3-3': ''
+      };
+
+    var dataLabels = [
+      'Time',
+      'Left Motor PWM',
+      'Right Motor PWM',
+      'Left Motor Encoder Counts',
+      'Right Motor Encoder Counts',
+      'Left Motor Target Speed',
+      'Right Motor Target Speed',
+      'Left Motor Actual Speed',
+      'Right Motor Actual Speed',
+    ]
+
+    var dataIndexMap = {
+      0: 'grid-3-3',
+      1: 'grid-2-1',
+      2: 'grid-2-1',
+      3: 'grid-2-2',
+      4: 'grid-2-2',
+      5: 'grid-1-1',
+      6: 'grid-1-1',
+      7: 'grid-1-1',
+      8: 'grid-1-1'
+    }
+
+    var graphs = {};
+
+    var startTime = new Date().getTime();
+
+    function addData(reading){
+      var r = reading.split(" ");
+
+      var time = parseFloat(r[0]);
+
+      var result = {};
+
+      for (var i = 1; i < r.length; i++){
+        if(dataIndexMap[i] !== undefined){
+          graphLabel = dataIndexMap[i];
+
+          if(result[graphLabel] === undefined)
+            result[graphLabel] = {};
+
+          dataLabel = dataLabels[i];
+
+          result[graphLabel][dataLabel] = parseFloat(r[i]);
+        }
+      }
+
+      for(var g in result){
+        graph = graphs[g];
+
+        if(graph === undefined){
+          initGraph(graphLabel);
+        }
+
+        // graph.series.addData(result[g], startTime /1000 + time/1000);
+        graph.series.addData(result[g]);
+
+      }
+    }
+
+    // function processSingleData(index, data, time){
+    //   graphLabel = dataIndexMap[index];
+    //   dataLabel = dataLabels[index];
+
+    //   graph = graphs[graphLabel];
+
+    //   if(graph === undefined){
+    //     initGraph(graphLabel);
+    //   }
+
+    //   dataObj = {};
+    //   dataObj[dataLabel] = data;
+
+    //   // console.log(dataLabel + " " + data)
+
+    //   if(time !== undefined)
+    //     graph.series.addData(dataObj, time);
+    //   else
+    //     graph.series.addData(dataObj);
+    // }
+
+    function update(message) {
+      addData(message);
+      renderGraphs();
+    }
+
+    var ws = null;
+    function connect() {
+      var host = $('#host').val();
+      ws = new WebSocket("ws://" + host + ":8080/mazebuster");
+      ws.onmessage = function(evt) {
+        // console.log(evt.data);
+        //var piface = JSON.parse(evt.data);
+        var message = evt.data;
+        if (String(message).substring(0, 2) == '//')
+          console.log(message);
+        else if (String(message).substring(0, 2) == '..'){
+          // var i = parseInt(String(message).substring(2));
+          // var prevHeading = heading;
+
+          // if (i == 1){
+          //     heading = (heading - 1) % 4;
+          // }else if (i == 2){
+          //     heading = (heading + 1) % 4;
+          // }
+
+          // if (prevHeading != heading){
+          //     pivot.x = position.x;
+          //     pivot.y = position.y;
+          // }
+
+          // console.log("New heading: " + heading);
+        } else
+          update(message);
+      };
+      ws.onclose = function(evt) {
+        console.log("Connection close ..");
+      };
+      ws.onopen = function(evt) {
+        console.log("WebSocket open ..");
+      };
+
+    }
+
+    function disconnect(){
+      if (ws !== null){
+          ws.close();
+      }
+    }
+
+    function send(){
+      var msg = $('#command').val();
+      if (ws !== null){
+          ws.send(msg);
+      }
+    }
+
+    function setTitles(){
+      for(var g in graphTitles){
+        var title = graphTitles[g];
+
+        if(title === ''){
+          title = g;
+        }
+
+        $($('#' + g).parent().siblings('.chart-title')[0]).text(title);
+      }
+    }
+
+    function init(){
+      $('#host').val(window.location.hostname);
+      setTitles();
+      for(var g in graphTitles){
+        initGraph(g);
+      }
+    }
+
+    function initGraph(label){
+      var width = $('#' + label).width();
+      var height = $('#' + label).height();
+      $('#' + label).html('<div class="y_axis" style="position: absolute;"></div><div class="chart"></div>').css('height', '240px');
+
+      var data = [];
+
+      for(var i in dataIndexMap){
+        if(dataIndexMap[i] == label){
+          var d = {};
+          d.name = dataLabels[i];
+          data.push(d);
+        }
+      }
+
+      var graph = new Rickshaw.Graph({
+        element: $('#' + label + ' .chart')[0],
+        // xScale: d3.time.scale(),
+        renderer: 'line',
+        min: 'auto',
+        width: width,
+        height: 240,
+        interpolation: 'step-after',
+        series: new Rickshaw.Series.FixedDuration(data, undefined, {
+            timeInterval: 500,
+            maxDataPoints: 200,
+            timeBase: startTime / 1000
+        }),
+        padding: {
+            top: 0.2,
+            bottom: 0.2,
+            left: 0.02,
+            right: 0.02
+        }
+      });
+
+      var x_axis = new Rickshaw.Graph.Axis.Time({
+        graph: graph,
+        tickFormat: graph.x.tickFormat(),
+        pixelPerTick: 100
+      });
+
+      var y_axis = new Rickshaw.Graph.Axis.Y({
+        graph: graph,
+        orientation: 'right',
+        tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
+        element: $('#' + label + ' .y_axis')[0],
+      });
+
+      var hoverDetail = new Rickshaw.Graph.HoverDetail( {
+        graph: graph,
+        formatter: function(series, x, y) {
+            // var date = '<span class="date">' + new Date(x * 1000).toUTCString() + '</span>';
+            var swatch = '<span class="detail_swatch" style="background-color: ' + series.color + '"></span>';
+            var content = swatch + series.name + ": " + y;
+            return content;
+        }
+      });
+
+      graphs[label] = graph;
+    }
+
+    function renderGraphs(){
+      for(var g in graphs){
+        if(graphs[g] !== undefined)
+          graphs[g].render();
+      }
+    }
+
+    $(window).on('resize', function(){
+      for(var g in graphTitles){
+        if(graphs[g] !== undefined){
+          var graph = graphs[g];
+          graph.configure({
+            width: $('#' + g).width(),
+            height: $('#' + g).height()
+          });
+        }
+      }
+      renderGraphs();
+    });
+
+    $(document).ready(function(){
+      init();
+      renderGraphs();
+    });
+  </script>
+</body>
+</html>
