@@ -39,7 +39,7 @@ class MazebusterIR
 
     const double* labelToCoeff(bool isShort, int label);
 
-    static const double _short_coeff[][5];
+    static const double _short_coeff[][2];
     static const double _long_coeff[][5];
     
     int _irPin;

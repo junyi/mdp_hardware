@@ -26,8 +26,8 @@ void loop(){
 //  }
 //  double raw = 
   //double x = IR1.distance();
-  Serial.println(sensorLR.distance());
+//  Serial.println(sensorLR.distance());
 //  Serial.print(" ");
-//  Serial.println(raw);
+  Serial.println(analogRead(pinIR1));
   // Serial.println(x);
 }

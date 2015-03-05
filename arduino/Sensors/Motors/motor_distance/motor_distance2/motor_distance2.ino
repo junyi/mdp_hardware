@@ -46,8 +46,8 @@ unsigned long prevTime = 0;              //Previous timestamp checked for motors
 unsigned long currTime = 0;              //Current timestamp
 
 PID     motorSpeedPID(&motorAccmEncoderCount, &targetMotorSpeed, &motorDistChkPt, 0.001, 0, 0, DIRECT);  //PID for calculating target speed
-PID     motorLPID(&motorLSpeed, &motorLPWM, &targetLSpeed, 600, 0, 0, DIRECT);  //PID that controls the PWM of left motor
-PID     motorRPID(&motorRSpeed, &motorRPWM, &targetRSpeed, 600, 0, 0, DIRECT);  //PID that controls the PWM of right motor
+PID     motorLPID(&motorLSpeed, &motorLPWM, &targetLSpeed, 300, 0, 0, DIRECT);  //PID that controls the PWM of left motor
+PID     motorRPID(&motorRSpeed, &motorRPWM, &targetRSpeed, 300, 0, 0, DIRECT);  //PID that controls the PWM of right motor
 
 
 /************** Decoded Command **************/
@@ -68,6 +68,7 @@ String inputString = "";
 
 boolean stringComplete = false;  // whether the string is complete
 int x = 550; //distance in straight line
+int y = 1500; //distance for 90 degree rotation
 int lspeed = 0;
 int rspeed = 0;
 double sensorReadings[4] = {};
@@ -77,7 +78,7 @@ int LMag = 1;
 int RMag = -1;
 int count = 0;
 //byte seq[] = {B00, B10, B00, B10, B00, B10, B00, B10};
-byte seq[] = {B00};
+byte seq[] = {dir};
 
 
 void setup(){
@@ -103,8 +104,8 @@ void setup(){
   motorRPID.SetSampleTime(50);
   /****************** END ******************/
   
-  motorLPID.SetTunings(600, 0, 0);
-  motorRPID.SetTunings(600, 0, 0);
+  motorLPID.SetTunings(300, 0, 0);
+  motorRPID.SetTunings(300, 0, 0);
   
   md.init();
 
@@ -116,6 +117,13 @@ void setup(){
 void loop(){
   configMove();
   controlRobot();
+  
+  if(dir == B00 || dir == B11)
+    if(motorLRun || motorRRun)
+      computePID();
+  
+  robotMove();
+  
   
   Serial.print(currTime);
   Serial.print(" ");
@@ -152,7 +160,7 @@ void loop(){
     };
     
     if(inputString.charAt(0) == 'd'){
-      dir = inputString.substring(0, 1).toInt() % 4;
+      seq[0] = inputString.substring(1).toInt() % 4;
     };
     
     if(inputString.charAt(0) == 'b'){
@@ -246,7 +254,7 @@ void loop(){
 
 void configMove(){
   if(!motorLRun && !motorRRun){
-    delay(100);
+    //delay(100);
   
     if(count < sizeof(seq)){
       dir = seq[count];
@@ -274,13 +282,13 @@ void configMove(){
         targetMotorSpeed = 0.35;
         LMag = 1;
         RMag = 1;
-        motorDistChkPt = 560;
+        motorDistChkPt = x;
         break;
       case B10:
         targetMotorSpeed = 0.35;
         LMag = -1;
         RMag = -1;
-        motorDistChkPt = 560;
+        motorDistChkPt = x;
         break;
       case B11:
         targetMotorSpeed = 0.5;
@@ -289,8 +297,10 @@ void configMove(){
         motorDistChkPt = x;
     }
     
-//    targetRSpeed = targetMotorSpeed;
-//    targetLSpeed = targetMotorSpeed;
+    if(dir == B01 || dir == B10){
+      motorLPWM = 120;
+      motorRPWM = 120;
+    }
 
 //    motorRPWM = targetRSpeed * 204.906 + 3.02;    
 //    motorLPWM = motorRPWM + 0.71 - 7.409 * targetLSpeed;
@@ -308,23 +318,37 @@ void robotMove(){
   if(motorLAccmEncoderCount < motorDistChkPt){
     md.setM2Speed(LMag*motorLPWM/255.0*400.0 );
   }else {
-    md.setM2Speed(0);
-    motorLRun = false;
-    targetLSpeed = 0;
+//    if(dir == B01 || dir == B10){
+//      robotStop();
+//      return;
+//    }
+//      
+//    md.setM2Speed(0);
+//    motorLRun = false;
+//    targetLSpeed = 0;
+    robotStop();
   }
   
   if(motorRAccmEncoderCount < motorDistChkPt){
     md.setM1Speed(RMag*motorRPWM/255.0*400.0);
   }else {
-    md.setM1Speed(0);
-    motorRRun = false;
-    targetRSpeed = 0;
+//    if(dir == B01 || dir == B10){
+//      robotStop();
+//      return;
+//    }
+//    
+//    md.setM1Speed(0);
+//    motorRRun = false;
+//    targetRSpeed = 0;
+    robotStop();
   }
 }
 
 void robotStop(){
-  md.setM2Speed(0);
   md.setM1Speed(0);
+  md.setM2Speed(0);
+  targetLSpeed = 0;
+  targetRSpeed = 0;
   motorLRun = false;
   motorRRun = false;
 }
@@ -361,7 +385,7 @@ void computePID() {         //Adjust PID of both motors to make the robot moves 
     }
   }
   
-  if(motorAccmEncoderCount > 410){
+  if(motorAccmEncoderCount > x - 150){
     if(targetLSpeed > 0){
       targetLSpeed -= targetMotorSpeed/4.0;
     }
@@ -387,10 +411,6 @@ void controlRobot() {       //Control the motors based on the command and PWM va
   motorLPrevAccmEncoderCount = motorLAccmEncoderCount;
   motorRPrevAccmEncoderCount = motorRAccmEncoderCount;
   
-  if(motorLRun || motorRRun)
-    computePID();   
-
-  robotMove();
   
   delay(50);
 }

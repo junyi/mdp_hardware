@@ -1,0 +1,42 @@
+import serial
+import sys
+
+print 'Enter the current IR label:'
+label = raw_input()
+# label = 1
+
+while True:
+	print 'Enter the current range:'
+	r = input()
+	if r == -1:
+		print 'Exiting...'
+		sys.exit()
+
+	total = 25
+	with open('ir%s.csv' % label, 'a') as f:
+		l = []
+		ser = serial.Serial(2)
+		count = 0
+		average = []
+		for i in xrange(5):
+			while count < total:
+				reading = ser.readline()
+				try:
+					l.append(float(reading.strip()))
+					count += 1
+				except ValueError:
+					pass
+				# print reading
+			v = sum(l)/count
+
+			# v = sum(sorted(l)[40:60])/20
+			print v
+			l = []
+			count = 0
+			average.append(v)
+		final = sorted(average)[2]
+		print "Final", final
+		f.write("%s, %s\n" % (r, final))
+		ser.close()
+
+

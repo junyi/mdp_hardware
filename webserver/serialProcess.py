@@ -1,3 +1,4 @@
+import os
 import serial
 import time
 import datetime
@@ -9,8 +10,10 @@ class SerialProcess(multiprocessing.Process):
         multiprocessing.Process.__init__(self)
         self.taskQ = taskQ
         self.resultQ = resultQ
-        # self.usbPort = '/dev/ttyACM0'
-        self.usbPort = 'COM3'
+        if os.name == 'nt':
+            self.usbPort = 'COM3'
+        else:
+            self.usbPort = '/dev/ttyACM0'
  
     def close(self):
         self.sp.close()
