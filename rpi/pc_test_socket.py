@@ -2,6 +2,7 @@ import socket
 import string
 import time
 import threading
+import signal
 
 __author__ = "Rohit"
 
@@ -46,10 +47,14 @@ class Test(threading.Thread):
 			# 	if (data == 'q' or len(data) == 0):
 			# 		break
 		print "quit receive()"
+		self.client_socket.close()
 	
 	def keep_main(self):
 		while True:
 			time.sleep(0.5)
+
+
+
 
 if __name__ == "__main__":
 	test = Test()
@@ -66,6 +71,11 @@ if __name__ == "__main__":
 	print "start rt and wt"
 
 	test.keep_main()
+
+	def signal_handler(signal, frame):
+		self.client_socket.close()
+
+	signal.signal(signal.SIGINT, signal_handler)
 
 	# rt.join()
 	# wt.join()

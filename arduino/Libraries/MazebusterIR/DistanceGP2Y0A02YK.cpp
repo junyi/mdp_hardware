@@ -80,3 +80,37 @@ int DistanceGP2Y0A02YK::getDistanceCentimeter2() {
 	}
 	else return ((A + B*voltage) / (1 + C*voltage + D*voltage*voltage));	//Curve fit
 }
+
+int DistanceGP2Y0A02YK::getDistanceMedian() {
+	for(int i = 0; i < 32; i++){
+		median.addValue(getDistance());
+	}
+
+    smoothedVal =  smooth(median.getMedian(), filterVal, smoothedVal);
+
+    if (smoothedVal < adcLowerBoundary) {	//Distance (in cm) is inversely related to ADC values
+		return (cmUpperBoundary);
+	}
+	
+	if (smoothedVal >= adcUpperBoundary ){
+		return (cmLowerBoundary);
+	}
+
+	return smoothedVal;
+}
+
+
+int DistanceGP2Y0A02YK::smooth(int data, float filterVal, float smoothedVal) {
+
+
+  if (filterVal > 1){      // check to make sure param's are within range
+    filterVal = .99;
+  }
+  else if (filterVal <= 0){
+    filterVal = 0;
+  }
+
+  smoothedVal = (data * (1 - filterVal)) + (smoothedVal  *  filterVal);
+
+  return (int)smoothedVal;
+}

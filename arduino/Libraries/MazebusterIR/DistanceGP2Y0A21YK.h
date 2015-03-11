@@ -10,7 +10,7 @@
 #endif
 
 #include <AnalogDistanceSensor.h>
-#include "FastRunningMedian.h"
+// #include "FastRunningMedian.h"
 
 class DistanceGP2Y0A21YK : public AnalogDistanceSensor {
 	public:

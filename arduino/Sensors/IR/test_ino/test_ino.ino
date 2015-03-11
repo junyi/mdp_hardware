@@ -3,12 +3,12 @@
 // #include <SharpIR.h>
 //#include <DistanceGP2Y0A02YK.h>
 //#include <DistanceGP2Y0A21YK.h>
-#include <MazebusterIR.h>
+//#include <MazebusterIR.h>
 //#include <SharpIR.h>
-#define pinIR1 A0
+#define pinIR1 A4
 //SharpIR sensorLR(pinIR1, 25, 93, 20150);
 //DistanceGP2Y0A02YK sensorLR;
-MazebusterIR sensorLR(pinIR1, 11, 25, 93);
+//MazebusterIR sensorLR(pinIR1, 11, 25, 93);
 
 void setup()
 {

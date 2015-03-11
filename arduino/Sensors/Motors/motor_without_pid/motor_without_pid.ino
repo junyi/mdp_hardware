@@ -43,11 +43,6 @@ double  targetMotorSpeed = 0;            //Target speed should be achieved by bo
 unsigned long prevTime = 0;              //Previous timestamp checked for motors' speeds
 unsigned long currTime = 0;              //Current timestamp
 
-PID     motorSpeedPID(&motorAccmEncoderCount, &targetMotorSpeed, &motorDistChkPt, 0.001, 0, 0, DIRECT);  //PID for calculating target speed
-PID     motorLPID(&motorLSpeed, &motorLPWM, &targetLSpeed, 300, 0, 0, DIRECT);  //PID that controls the PWM of left motor
-PID     motorRPID(&motorRSpeed, &motorRPWM, &targetRSpeed, 300, 0, 0, DIRECT);  //PID that controls the PWM of right motor
-
-
 /************** Decoded Command **************/
 byte    mode = B0;          //Map exploration mode = 0, Shortest path travelling mode = 1
 byte    start = B0;         //Start = 1, Stop = 0
@@ -76,7 +71,7 @@ int LMag = 1;
 int RMag = -1;
 int count = 0;
 //byte seq[] = {B00, B10, B00, B10, B00, B10, B00, B10};
-byte seq[] = {B11};
+byte seq[] = {B00};
 
 
 void setup(){
@@ -88,22 +83,6 @@ void setup(){
   pinMode(MOTOR_L_ENCODER_B, INPUT);
   pinMode(MOTOR_R_ENCODER_A, INPUT);
   pinMode(MOTOR_R_ENCODER_B, INPUT);
-  
-  
-  /********** PID  Configurations **********/
-  motorSpeedPID.SetMode(AUTOMATIC);
-  motorLPID.SetMode(AUTOMATIC);
-  motorRPID.SetMode(AUTOMATIC);
-  motorSpeedPID.SetOutputLimits(0.15, 0.73);
-  motorLPID.SetOutputLimits(98.9, 255);
-  motorRPID.SetOutputLimits(100, 255);
-  motorSpeedPID.SetSampleTime(50);
-  motorLPID.SetSampleTime(50);
-  motorRPID.SetSampleTime(50);
-  /****************** END ******************/
-  
-  motorLPID.SetTunings(300, 0, 0);
-  motorRPID.SetTunings(300, 0, 0);
   
   md.init();
 
@@ -148,13 +127,12 @@ void loop(){
     Serial.println(inputString);
     int index = inputString.indexOf(' ');
     if(index != -1){
-      lspeed = inputString.substring(0, index).toInt()*400/255.0;      
-      rspeed = inputString.substring(index + 1).toInt()*400/255.0;      
+      motorLPWM = inputString.substring(0, index).toInt()*400/255.0;      
+      motorRPWM = inputString.substring(index + 1).toInt()*400/255.0;      
     }
 
     if(inputString.charAt(0) == 's'){
-      lspeed = 0;
-      rspeed = 0;
+      robotStop();
     };
     
     if(inputString.charAt(0) == 'd'){
@@ -169,79 +147,9 @@ void loop(){
       count = 0;
     };
     
-    if(inputString.charAt(0) == 'p'){
-      int spaceOne = inputString.indexOf(' ');
-      int spaceTwo = inputString.indexOf(' ', spaceOne + 1);
-      
-      char buffer[10];
-
-      inputString.substring(1, spaceOne).toCharArray(buffer, 10);
-      double kp = atof(buffer);
-      
-      inputString.substring(spaceOne + 1, spaceTwo).toCharArray(buffer, 10);
-      double ki = atof(buffer);
-      
-      inputString.substring(spaceTwo + 1).toCharArray(buffer, 10);
-      double kd = atof(buffer);
-      
-      motorLPID.SetTunings(kp, ki, kd);
-      motorRPID.SetTunings(kp, ki, kd);
-    };
     
-    if(inputString.charAt(0) == 'l'){
-      int spaceOne = inputString.indexOf(' ');
-      int spaceTwo = inputString.indexOf(' ', spaceOne + 1);
-      
-      char buffer[10];
-
-      inputString.substring(1, spaceOne).toCharArray(buffer, 10);
-      double kp = atof(buffer);
-      
-      inputString.substring(spaceOne + 1, spaceTwo).toCharArray(buffer, 10);
-      double ki = atof(buffer);
-      
-      inputString.substring(spaceTwo + 1).toCharArray(buffer, 10);
-      double kd = atof(buffer);
-      
-      motorLPID.SetTunings(kp, ki, kd);
-    };
-    
-    if(inputString.charAt(0) == 'r'){
-      int spaceOne = inputString.indexOf(' ');
-      int spaceTwo = inputString.indexOf(' ', spaceOne + 1);
-      
-      char buffer[10];
-
-      inputString.substring(1, spaceOne).toCharArray(buffer, 10);
-      double kp = atof(buffer);
-      
-      inputString.substring(spaceOne + 1, spaceTwo).toCharArray(buffer, 10);
-      double ki = atof(buffer);
-      
-      inputString.substring(spaceTwo + 1).toCharArray(buffer, 10);
-      double kd = atof(buffer);
-      
-      motorRPID.SetTunings(kp, ki, kd);
-    };
-    
-    if(inputString.charAt(0) == 't'){
-      Serial.print("//l ");
-      Serial.print(motorLPID.GetKp());
-      Serial.print(" ");
-      Serial.print(motorLPID.GetKi());
-      Serial.print(" ");
-      Serial.println(motorLPID.GetKd());
-      
-      Serial.print("//r ");
-      Serial.print(motorRPID.GetKp());
-      Serial.print(" ");
-      Serial.print(motorRPID.GetKi());
-      Serial.print(" ");
-      Serial.println(motorRPID.GetKd());
-    }
-    
-    md.setM2Speed(lspeed);
-    md.setM1Speed(rspeed);
+//    md.setM2Speed(lspeed);
+//    md.setM1Speed(rspeed);
     // clear the string:
     inputString = "";
     stringComplete = false;
@@ -272,8 +180,6 @@ void configMove(){
     switch(dir){
       case B00:
         targetMotorSpeed = 1;
-        lspeed = 165;
-        rspeed = 170;
         LMag = -1;
         RMag = 1;
         motorDistChkPt = x;
@@ -316,8 +222,7 @@ void configMove(){
 void robotMove(){
   
   if(motorLAccmEncoderCount < motorDistChkPt){
-//    md.setM2Speed(LMag*motorLPWM/255.0*400.0 );
-    md.setM2Speed(LMag*lspeed);
+    md.setM2Speed(LMag*motorLPWM/255.0*400.0 );
   }else {
 //    if(dir == B01 || dir == B10){
 //      robotStop();
@@ -331,8 +236,7 @@ void robotMove(){
   }
   
   if(motorRAccmEncoderCount < motorDistChkPt){
-    md.setM2Speed(RMag*rspeed);
-//    md.setM1Speed(RMag*motorRPWM/255.0*400.0);
+    md.setM1Speed(RMag*motorRPWM/255.0*400.0);
   }else {
 //    if(dir == B01 || dir == B10){
 //      robotStop();
@@ -374,32 +278,6 @@ void serialEvent() {
       stringComplete = true;
     } 
   }
-}
-
-void computePID() {         //Adjust PID of both motors to make the robot moves in straight line
-  if(motorAccmEncoderCount < 150){
-    if(targetLSpeed < targetMotorSpeed){
-      targetLSpeed += targetMotorSpeed/4.0;
-    }
-    
-    if(targetRSpeed < targetMotorSpeed){
-      targetRSpeed += targetMotorSpeed/4.0;
-    }
-  }
-  
-  if(motorAccmEncoderCount > x - 150){
-    if(targetLSpeed > 0){
-      targetLSpeed -= targetMotorSpeed/4.0;
-    }
-    
-    if(targetRSpeed > 0){
-      targetRSpeed -= targetMotorSpeed/4.0;
-    }
-  }
-
-//  motorLPID.Compute();  //Compute right motor PWM based on the right motor speed w.r.t the target speed
-//  motorRPID.Compute();  //Compute left motor PWM based on the left motor speed w.r.t the target speed
-  
 }
 
 void controlRobot() {       //Control the motors based on the command and PWM values given

@@ -54,7 +54,8 @@ int DistanceGP2Y0A21YK::getDistanceCentimeter2() {
 	}
 }
 
-double DistanceGP2Y0A21YK::getDistanceCentimeter() {
+int DistanceGP2Y0A21YK::getDistanceCentimeter() {
+	int adcValue = getDistanceRaw();
 	if (adcValue < adcLowerBoundary) {	//Distance (in cm) is inversely related to ADC values
 		return (cmUpperBoundary);
 	}
@@ -63,10 +64,10 @@ double DistanceGP2Y0A21YK::getDistanceCentimeter() {
 		return (cmLowerBoundary);
 	}
 
-	return 1/(adcValue - shortCoeff[label - 1] - short_const[label - 1])
+	return 1/(adcValue*shortCoeff[_label - 1][1] + shortCoeff[_label - 1][0]) - short_const[_label - 1];
 }
 
-double DistanceGP2Y0A21YK::getDistance() {
+int DistanceGP2Y0A21YK::getDistance() {
 	if (_label == 2) {
 		return getDistanceCentimeter2();
 	} else {
@@ -74,14 +75,21 @@ double DistanceGP2Y0A21YK::getDistance() {
 	}
 }
 
-double DistanceGP2Y0A21YK::getDistanceMedian() {
-	for(int i = 0; i < 100; i++){
-		median.addValue(getDistance());
+int DistanceGP2Y0A21YK::getDistanceMedian() {
+	for(int i = 0; i < 32; i++){
+		median.addValue(getDistanceRaw());
 	}
 
     smoothedVal =  smooth(median.getMedian(), filterVal, smoothedVal);
 
-	return smoothedVal;
+    if(_label == 2)
+		for (byte x = 1; x < ARRAY_SIZE; x++) {
+			if (smoothedVal >= adcTable[x]) {
+				return map(smoothedVal, adcTable[x-1], adcTable[x], distanceTable[x-1], distanceTable[x]);
+			}
+		}
+	else
+		return 1/(smoothedVal*shortCoeff[_label - 1][1] + shortCoeff[_label - 1][0]) - short_const[_label - 1];
 }
 
 int DistanceGP2Y0A21YK::smooth(int data, float filterVal, float smoothedVal) {
