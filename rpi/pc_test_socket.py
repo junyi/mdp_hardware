@@ -27,7 +27,7 @@ class Test(threading.Thread):
 		msg = raw_input()
 		while True:
 			# if (count == 1):
-			# 	break
+				# break
 			d  = None
 			if msg[1] == 'l':
 				d = msg[0] + chr(0b00000110) + chr(0b00000001)
@@ -35,16 +35,20 @@ class Test(threading.Thread):
 				d = msg[0] + chr(0b00000101) + chr(0b00000001)
 			elif msg[1] == 's':
 				d = msg[0] + chr(0b00000111) + chr(0b00000001)
+			elif msg[1] == 'b':
+				d = msg[0] + chr(0b00000100) + chr(0b00000001)		
+			elif msg[1] == 'c':
+				d = msg[0] + chr(0b00001100) + chr(0b00000000)		
 
 			if d is not None:
-				self.client_socket.send(d)
+				self.client_socket.send(d+"\n")
 			else:
-				self.client_socket.send(msg)
+				self.client_socket.send(msg+"\n")
 
 			print "sending: ", msg
 			# print "Enter text to send: "
 			msg = raw_input("Enter a value:")
-			count += 1
+			# count += 1
 		print "quit write()"
 
 	# Receive data

@@ -68,9 +68,11 @@ const   int DEGREE_90 = 290;          //90 degreee ange=le
 /******************** END ********************/
 
 /******************* Flags *******************/
-boolean sense = true;       //Allow sensors to sense and transmit data
+boolean sense = false;       //Allow sensors to sense and transmit data
 boolean motorLRun = false;  //Allow left motor to run (based on the command given)
 boolean motorRRun = false;  //Allow right motor to run (based on the command given)
+boolean hasSent = false;
+volatile boolean start = false;
 /******************** END ********************/
 
 String inputString = "";
@@ -104,8 +106,8 @@ void setup(){
   motorRPID.SetMode(AUTOMATIC);
   motorLPID.SetOutputLimits(98.9, 255);
   motorRPID.SetOutputLimits(100, 255);
-  motorLPID.SetSampleTime(50);
-  motorRPID.SetSampleTime(50);
+  motorLPID.SetSampleTime(10);
+  motorRPID.SetSampleTime(10);
   /****************** END ******************/
   
   motorLPID.SetTunings(300, 0, 0);
@@ -119,55 +121,65 @@ void setup(){
 }
 
 void loop(){
-  configMove();
-  controlRobot();
-  
-  if(dir == B11)
-    if(motorLRun || motorRRun)
-      computePID();
-  
-  robotMove();
-  
-  // Do not sense if robot is moving
-  if(sense && !motorLRun && !motorRRun){
+  if(!start){
+    return;
+  }
+    
+  if(hasSent && sense && !motorLRun && !motorRRun){
 //    delay(100);
     for(int i=0; i<10; i++) {
       readAllSensors();
     }
   
-//    for(int i=0; i<5; i++){
-//      Serial.print(sensorReadings[i]);
-//      Serial.print(" ");
-//    }
-//    Serial.println();
+    for(int i=0; i<5; i++){
+      Serial.print(sensorReadings[i]);
+      Serial.print(" ");
+    }
+    Serial.println();
 
     sense = false;
+  }else{
+    
+    configMove();
+    controlRobot();
+    if(dir == B11)    
+      if(motorLRun || motorRRun)
+        computePID();
+    
+    robotMove();
   }
-  Serial.print(currTime);
-  Serial.print(" ");
-  Serial.print(motorLPWM);
-  Serial.print(" ");
-  Serial.print(motorRPWM);
-  Serial.print(" ");
-  Serial.print(motorLAccmEncoderCount);
-  Serial.print(" ");
-  Serial.print(motorRAccmEncoderCount);
-  Serial.print(" ");
-  Serial.print(targetLSpeed);
-  Serial.print(" ");
-  Serial.print(targetRSpeed);
-  Serial.print(" ");
-  Serial.print(motorLSpeed);
-  Serial.print(" ");
-  Serial.println(motorRSpeed);
+  
+  if(!hasSent && !motorLRun && !motorRRun){
+    Serial.println("*");
+    hasSent = true;
+  }
+  // Do not sense if robot is moving
+  
+//  Serial.print(currTime);
+//  Serial.print(" ");
+//  Serial.print(motorLPWM);
+//  Serial.print(" ");
+//  Serial.print(motorRPWM);
+//  Serial.print(" ");
+//  Serial.print(motorLAccmEncoderCount);
+//  Serial.print(" ");
+//  Serial.print(motorRAccmEncoderCount);
+//  Serial.print(" ");
+//  Serial.print(targetLSpeed);
+//  Serial.print(" ");
+//  Serial.print(targetRSpeed);
+//  Serial.print(" ");
+//  Serial.print(motorLSpeed);
+//  Serial.print(" ");
+//  Serial.println(motorRSpeed);
 //  
 //  Serial.println(motorLAccmEncoderCount);
 
 }
 
 void readAllSensors() {  
-  sensorReadings[0] = frontLeft.getDistanceMedian() - 6;
-  sensorReadings[1] = frontMiddle.getDistanceMedian() - 6;
+  sensorReadings[0] = frontLeft.getDistanceMedian()-6;
+  sensorReadings[1] = frontMiddle.getDistanceMedian() -6;
   sensorReadings[2] = frontRight.getDistanceMedian() - 6;
   sensorReadings[3] = right.getDistanceMedian() - 6;
   sensorReadings[4] = left.getDistanceMedian() - 6;
@@ -179,13 +191,13 @@ void robotMove(){
     return;
   }
   
-  if(motorLAccmEncoderCount < motorDistChkPt){
+  if(motorLRun && motorLAccmEncoderCount < motorDistChkPt){
     md.setM2Speed(LMag*motorLPWM/255.0*400.0 );
   }else {
     robotStop();
   }
   
-  if(motorRAccmEncoderCount < motorDistChkPt){
+  if(motorRRun && motorRAccmEncoderCount < motorDistChkPt){
     md.setM1Speed(RMag*motorRPWM/255.0*400.0);
   }else {
     robotStop();
@@ -193,8 +205,8 @@ void robotMove(){
 }
 
 void robotStop(){
-  md.setM1Speed(0);
-  md.setM2Speed(0);
+  md.setM1Brake(300);
+  md.setM2Brake(300);
   targetLSpeed = 0;
   targetRSpeed = 0;
   motorRAccmEncoderCount = 0;
@@ -212,10 +224,32 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
   if(Serial.available() && !motorLRun && !motorRRun) {
     int data1 = Serial.read();          //First byte of data is moving command
     int data2 = Serial.read();          //Second byte of data is distance
+    
+    //Initialization for robot
+    if(((char) data1) == '*'){
+      start = true;
+      return;
+    }
+    
+//    char d1 = (char)data1;
+//    
+//    if(d1 == 'l'){
+//      data1 = B00000110;
+//      data2 = B00000001;
+//    }else if(d1 == 'r'){
+//      data1 = B00000101;
+//      data2 = B00000001;
+//    }
+    
+      
+    
     Serial.flush();
     
     if(data1 != -1) {                   //If received a command, decode the command
       command = byte(data1);
+      sense = (boolean) ((data1 & 0x40) >> 6) & 1;
+      if(sense)
+        return;
       mode = (command & 0x0C) >> 2;         //Bit 0-1 represents start or stop
 //      Serial.print("Mode ");
 //      Serial.println(mode);
@@ -232,7 +266,6 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
 
 
     }
-    sense = false;
     configMove();                     //Configure variables for the next move
   }
 }
@@ -251,6 +284,7 @@ void configMove(){
     motorRPrevAccmEncoderCount = 0;
     motorLRun = true;
     motorRRun = true;
+    hasSent = false;
     sense = true;
     
     switch(dir){
@@ -261,16 +295,16 @@ void configMove(){
         motorDistChkPt = 250;
         break;
       case B01:
-        targetMotorSpeed = 0.35;
+        targetMotorSpeed = 1;
         LMag = -1;
         RMag = -1;
-        motorDistChkPt = 284;
+        motorDistChkPt = 355;
         break;
       case B10:
-        targetMotorSpeed = 0.35;
+        targetMotorSpeed = 1;
         LMag = 1;
         RMag = 1;
-        motorDistChkPt = 283;
+        motorDistChkPt = 355;
         break;
       case B00:
         targetMotorSpeed = 0.5;
@@ -280,8 +314,8 @@ void configMove(){
     }
     
     if(dir != B11){
-      motorLPWM = 160;
-      motorRPWM = 160;
+      motorLPWM = 170;
+      motorRPWM = 170;
     }
     
 //    delay(1000);
@@ -290,25 +324,27 @@ void configMove(){
 
 
 void computePID() {         //Adjust PID of both motors to make the robot moves in straight line
-  if(motorAccmEncoderCount < 150){
-    if(targetLSpeed < targetMotorSpeed){
-      targetLSpeed += targetMotorSpeed/4.0;
-    }
-    
-    if(targetRSpeed < targetMotorSpeed){
-      targetRSpeed += targetMotorSpeed/4.0;
-    }
-  }
-  
-  if(motorAccmEncoderCount > travelDist - 150){
-    if(targetLSpeed > 0){
-      targetLSpeed -= targetMotorSpeed/4.0;
-    }
-    
-    if(targetRSpeed > 0){
-      targetRSpeed -= targetMotorSpeed/4.0;
-    }
-  }
+  targetLSpeed = targetMotorSpeed;
+  targetRSpeed = targetMotorSpeed;
+//  if(motorAccmEncoderCount < 150){
+//    if(targetLSpeed < targetMotorSpeed){
+//      targetLSpeed += targetMotorSpeed/4.0;
+//    }
+//    
+//    if(targetRSpeed < targetMotorSpeed){
+//      targetRSpeed += targetMotorSpeed/4.0;
+//    }
+//  }
+//  
+//  if(motorAccmEncoderCount > travelDist - 150){
+//    if(targetLSpeed > 0){
+//      targetLSpeed -= targetMotorSpeed/4.0;
+//    }
+//    
+//    if(targetRSpeed > 0){
+//      targetRSpeed -= targetMotorSpeed/4.0;
+//    }
+//  }
 
   motorLPID.Compute();  //Compute right motor PWM based on the right motor speed w.r.t the target speed
   motorRPID.Compute();  //Compute left motor PWM based on the left motor speed w.r.t the target speed
@@ -327,7 +363,7 @@ void controlRobot() {       //Control the motors based on the command and PWM va
   motorRPrevAccmEncoderCount = motorRAccmEncoderCount;
   
   
-  delay(50);
+  delay(10);
 }
 
 void motorLISR() {    //ISR for left motor encoder interrupt

@@ -1,12 +1,5 @@
 //#include <MazebusterIR.h>
-#include <MedianFilter.h>
-#include <iirFilter.h>
-#include <firFilter.h>
 #include <DistanceGP2Y0A21YK.h>
-
-MedianFilter Filter;
-iirFilter Filter2;
-firFilter Filter3;
 
 #define SENSOR_IR_FRONT_LEFT A1
 #define SENSOR_IR_FRONT_MIDDLE A0
@@ -77,17 +70,17 @@ void readAllSensors(){
 //  sensorReadings[2] = filtered;
 //  int filtered = Filter3.run(x);
 //  sensorReadings[3] = filtered;
-  sensorReadings[0] = frontMiddle.getDistanceMedian()-6;
-//  sensorReadings[1] = frontLeft.getDistanceCentimeterMedian();
-//  sensorReadings[2] = frontRight.getDistanceCentimeter2();
-//  sensorReadings[3] = frontRight.getDistanceCentimeterMedian();
- // sensorReadings[0] = irFrontLeft.distance();
-//  sensorReadings[0] = frontMiddle.getDistanceMedian();
-  sensorReadings[1] = frontLeft.getDistanceMedian()-6;
- // sensorReadings[2] = irFrontRight.distance();
-  sensorReadings[2] = frontRight.getDistanceMedian()-6;
-  sensorReadings[3] = left.getDistanceMedian()-6;
-  sensorReadings[4] = right.getDistanceMedian()-6;
+  sensorReadings[0] = frontMiddle.getDistanceMedian();
+  sensorReadings[1] = frontLeft.getDistanceMedian();
+  sensorReadings[2] = frontRight.getDistanceMedian();
+  sensorReadings[3] = left.getDistanceMedian();
+  sensorReadings[4] = right.getDistanceMedian();
+//  sensorReadings[0] = frontMiddle.getDistanceRaw();
+//  sensorReadings[1] = frontLeft.getDistanceRaw();
+//  sensorReadings[2] = frontRight.getDistanceRaw();
+//  sensorReadings[3] = left.getDistanceRaw();
+//  sensorReadings[4] = right.getDistanceRaw();
+
 //  int x = frontLeft.getDistanceCentimeterMedian();
 //  sensorReadings[1] = x;
 //  sensorReadings[2] = Filter3.run(x);
