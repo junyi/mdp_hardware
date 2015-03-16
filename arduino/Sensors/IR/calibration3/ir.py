@@ -21,9 +21,9 @@ while True:
 			try:
 				initial = float(reading)
 				print "Initial: ", initial
-				x = input()
-				if x == 'Y':
-					done = True
+				x = raw_input()
+				if x.lower() == 'y':
+					break
 			except ValueError:
 				continue
 
@@ -31,12 +31,16 @@ while True:
 		upperbound = initial + 30
 		count = 0
 		while count < 100:
-			value = float(ser.readline().strip())
-			if lowerbound <= value <= upperbound:
-				s = "%s, %s" % (r, value)
-				f.write(s + "\n")
-				print s
-				count += 1
+			try:
+				reading = ser.readline()
+				value = float(reading)
+				if lowerbound <= value <= upperbound:
+					s = "%s, %s" % (r, value)
+					f.write(s + "\n")
+					print s
+					count += 1
+			except ValueError:
+				pass
 		# average = []
 		# for i in xrange(5):
 		# 	while count < total:

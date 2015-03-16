@@ -1,7 +1,6 @@
 #include "DualVNH5019MotorShield.h"
 #include <PinChangeInt.h>
 #include <PID_v1.h>
-#include <MazebusterIR.h>
 #include <digitalWriteFast.h>
 
 #define MOTOR_L_ENCODER_A 3
@@ -45,7 +44,7 @@ double  targetMotorSpeed = 0;            //Target speed should be achieved by bo
 unsigned long prevTime = 0;              //Previous timestamp checked for motors' speeds
 unsigned long currTime = 0;              //Current timestamp
 
-PID     motorSpeedPID(&motorAccmEncoderCount, &targetMotorSpeed, &motorDistChkPt, 0.001, 0, 0, DIRECT);  //PID for calculating target speed
+//PID     motorSpeedPID(&motorAccmEncoderCount, &targetMotorSpeed, &motorDistChkPt, 0.001, 0, 0, DIRECT);  //PID for calculating target speed
 //PID     motorLPID(&motorLSpeed, &motorLPWM, &targetLSpeed, 600, 0, 0, DIRECT);  //PID that controls the PWM of left motor
 //PID     motorRPID(&motorRSpeed, &motorRPWM, &targetRSpeed, 600, 0, 0, DIRECT);  //PID that controls the PWM of right motor
 
@@ -77,7 +76,7 @@ int LMag = 1;
 int RMag = -1;
 int count = 0;
 //byte seq[] = {B00, B10, B00, B10, B00, B10, B00, B10};
-byte seq[] = {B00};
+byte seq[] = {B01};
 
 
 void setup(){
@@ -92,13 +91,13 @@ void setup(){
   
   
   /********** PID  Configurations **********/
-  motorSpeedPID.SetMode(AUTOMATIC);
+//  motorSpeedPID.SetMode(AUTOMATIC);
 //  motorLPID.SetMode(AUTOMATIC);
 //  motorRPID.SetMode(AUTOMATIC);
-  motorSpeedPID.SetOutputLimits(0.15, 0.73);
+//  motorSpeedPID.SetOutputLimits(0.15, 0.73);
 //  motorLPID.SetOutputLimits(98.9, 255);
 //  motorRPID.SetOutputLimits(100, 255);
-  motorSpeedPID.SetSampleTime(50);
+//  motorSpeedPID.SetSampleTime(50);
 //  motorLPID.SetSampleTime(10);
 //  motorRPID.SetSampleTime(10);
   /****************** END ******************/
@@ -115,7 +114,7 @@ void setup(){
 
 void loop(){
   configMove();
-   controlRobot();
+//   controlRobot();
 //    if(dir == B00)    
 //      if(motorLRun || motorRRun)
 //        computePID();
@@ -167,6 +166,12 @@ void loop(){
     if(inputString.charAt(0) == 'k'){
       count = 0;
     };
+    
+    if(inputString.charAt(0) == 't'){
+      Serial.print(LMag*motorLPWM);
+      Serial.print(" ");
+      Serial.println(RMag*motorRPWM);
+    }
     
 //    if(inputString.charAt(0) == 'p'){
 //      int spaceOne = inputString.indexOf(' ');
@@ -260,8 +265,8 @@ void configMove(){
       return;
     }
     
-    Serial.print("..");
-    Serial.println(dir);
+//    Serial.print("..");
+//    Serial.println(dir);
     motorLAccmEncoderCount = 0;
     motorRAccmEncoderCount = 0;
     motorLPrevAccmEncoderCount = 0;
@@ -271,7 +276,7 @@ void configMove(){
     
     switch(dir){
       case B00:
-        targetMotorSpeed = 0.8;
+         targetMotorSpeed = 0.8;
         LMag = -1;
         RMag = 1;
         motorDistChkPt = x;
@@ -280,6 +285,8 @@ void configMove(){
         targetMotorSpeed = 0.35;
         LMag = -1;
         RMag = -1;
+//        motorLPWM = 200;
+//        motorRPWM = 189.5;
         motorDistChkPt = x;
         break;
       case B10:

@@ -61,7 +61,6 @@ const byte MODE_CALIBRATE = B11;
 
 /************** Decoded Command **************/
 byte    mode = MODE_STOP;          //Map exploration mode = 0, Shortest path travelling mode = 1
-byte previousMode;
 byte    dir = B11;          //Forward = 11, Left = 01, Right = 10, Backward = 00
 int     travelDist = 260;     //Distance (in ticks count) required to be travelled by the motor
 /******************** END ********************/
@@ -71,13 +70,12 @@ boolean sense = false;       //Allow sensors to sense and transmit data
 boolean motorLRun = false;  //Allow left motor to run (based on the command given)
 boolean motorRRun = false;  //Allow right motor to run (based on the command given)
 boolean hasSent = false;
-volatile boolean hasCalibrated = false;
 volatile boolean start = false;
 /******************** END ********************/
 
 double FORWARD_PWM_L = 166;
 double FORWARD_PWM_R = 167;
-int FORWARD_DIST = 482;
+int FORWARD_DIST = 550;
 
 double CCW_PWM_L = 200;
 double CCW_PWM_R = 189;
@@ -95,8 +93,6 @@ boolean stringComplete = false;  // whether the string is complete
 int lspeed = 0;
 int rspeed = 0;
 float sensorReadings[5] = {};
-float previousLeftReading = 0;
-float previousRightReading = 0;
 
 int LMag = 1;
 int RMag = -1;
@@ -124,42 +120,80 @@ void setup(){
   
 }
 
+boolean offPath = false;
+
 void loop(){
   if(!start){
     return;
   }
     
-  if(sense && !motorLRun && !motorRRun){
-
-    readAllSensors();
-      
-    for(int i=0; i<5; i++){
-      Serial.print(sensorReadings[i]);
-      Serial.print(" ");
-    }
-    Serial.println();
-
-    sense = false;
+  if(checkFront()){
+    moveStraight(10);
+    delay(200);
   }else{
-    if(mode == MODE_EXPLORE){
-      configMove();
-//      controlRobot();
-    
-      robotMove();
-    }else if(mode == MODE_CALIBRATE){
-      calibrateFront();
+    if(offPath){
+      robotStop();
+      return;
     }
-  }
-  
-  if(!hasSent && !motorLRun && !motorRRun){
-    Serial.println("*");
-    hasSent = true;
+//    rotateCW(90);
+//    delay(200);
+//    moveStraight(10);
+//    delay(200);
+//    moveStraight(10);
+//    delay(200);
+//    rotateCCW(90);
+//    delay(200);
+//    for(int i = 0; i<5;i++){
+//      moveStraight(10);
+//      delay(200);
+//    }
+//    rotateCCW(90);
+//    delay(200);
+//    moveStraight(10);
+//    delay(200);
+//    moveStraight(10);
+//    delay(200);
+//    rotateCW(90);
+//    delay(200);
+    drift(true);
+    delay(500);
+    drift(false);
+    delay(500);
+    drift(false);
+    delay(500);
+    drift(true);
+    delay(500);
+    offPath = true;
   }
 }
 
+boolean checkFront(){
+  for(int i=0; i<50; i++) {
+    sensorReadings[0] = frontMiddle.getDistanceMedian();
+//    sensorReadings[1] = frontMiddle.getDistanceMedian();
+//    sensorReadings[2] = frontRight.getDistanceMedian();
+  }
+  Serial.println(sensorReadings[0]);
+  return sensorReadings[0] > 30;
+}
+
+boolean checkLeft(){
+  for(int i=0; i<50; i++) {
+    sensorReadings[4] = left.getDistanceMedian();
+  }
+
+  return sensorReadings[4] > 12;
+}
+
+boolean checkRight(){
+  for(int i=0; i<50; i++) {
+    sensorReadings[4] = left.getDistanceMedian();
+  }
+
+  return sensorReadings[3] > 12;
+}
+
 void readAllSensors() {
-  previousLeftReading = sensorReadings[4];
-  previousRightReading = sensorReadings[3];
   int l = mode == MODE_CALIBRATE ? 10 : 50;
   for(int i=0; i<l; i++) {
     sensorReadings[0] = frontLeft.getDistanceMedian();
@@ -168,12 +202,6 @@ void readAllSensors() {
     sensorReadings[3] = right.getDistanceMedian();
     sensorReadings[4] = left.getDistanceMedian();
   }
-//  Serial.print(previousLeftReading);
-//  Serial.print(" ");
-//  Serial.println(sensorReadings[4]);
-//  Serial.print(previousRightReading);
-//  Serial.print(" ");
-//  Serial.println(sensorReadings[3]);
 }
 
 void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial communication
@@ -199,7 +227,6 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
       if(sense)
         return;
       mode = (command & 0x0C) >> 2;         //Bit 0-1 represents start or stop
-
 //      if(mode == B11){
 //        robotStop();
 //        return;
@@ -289,14 +316,12 @@ void robotMove(){
   }
   
   if(motorLRun && motorLAccmEncoderCount < motorDistChkPt){
-    hasCalibrated = false;
     md.setM2Speed(LMag*motorLPWM/255.0*400.0);
   }else {
     robotStop();
   }
   
   if(motorRRun && motorRAccmEncoderCount < motorDistChkPt){
-    hasCalibrated = false;
     md.setM1Speed(RMag*motorRPWM/255.0*400.0);
   }else {
     robotStop();
@@ -309,57 +334,14 @@ void robotStop(){
   }else{
     md.setBrakes(400, 400);
   }
-  
-//  if(!hasCalibrated){
-//    if(mode == MODE_EXPLORE){
-//      if(dir == B11){
-//        calibrateSide();
-//      }
-//    }
-//    mode = MODE_STOP;
-//    hasCalibrated = true;
-//  }
-  
   targetLSpeed = 0;
   targetRSpeed = 0;
   motorRAccmEncoderCount = 0;
   motorLAccmEncoderCount = 0;
   motorLRun = false;
   motorRRun = false;
-}
-
-void calibrateSide(){
-  if(hasCalibrated)
-    return;
-  readAllSensors();
-  float diff;
-  Serial.print(previousLeftReading);
-  Serial.print(" ");
-  Serial.println(sensorReadings[4]);
-  Serial.print(previousRightReading);
-  Serial.print(" ");
-  Serial.println(sensorReadings[3]);
-  float leftAngle = atan2(sensorReadings[4] - previousLeftReading, 10)*180/M_PI;
-  float rightAngle = atan2(sensorReadings[3] - previousRightReading, 10)*180/M_PI;
-  if(abs(leftAngle) < 20 && abs(leftAngle) < abs(rightAngle)){
-    Serial.print("Angle: ");
-    Serial.println(leftAngle);
-    if(leftAngle < 0){
-      rotateCW(-leftAngle);
-    }else{
-      rotateCCW(leftAngle);
-    }
-    
-  }else if(abs(rightAngle) < 20 && abs(rightAngle) < abs(leftAngle)){
-    Serial.print("Angle: ");
-    Serial.println(rightAngle);
-    if(diff < 0){
-      rotateCW(-rightAngle);
-    }else{
-      rotateCCW(rightAngle);
-    }
-  }
-  hasCalibrated = true;
+  if(mode != MODE_CALIBRATE)
+    mode = MODE_STOP;
 }
 
 int calibrateCount = 0;
@@ -376,7 +358,7 @@ void calibrateFront(){
   float FM = sensorReadings[1];
   float FR = sensorReadings[2];
   
-  float sensorMin = min(FL, FR);
+  float sensorMin = min(min(FL, FM), FR);
   if(sensorMin < 7){
     moveStraight(-7+sensorMin);
   }
@@ -387,15 +369,15 @@ void calibrateFront(){
   FR = sensorReadings[2];
   
   // If left distance > right distance, turn clockwise
-  while(abs(FL-FR) > 1 && calibrateCount < 5){
+  while(abs(FL-FR) > 0.5 && calibrateCount < 20){
     Serial.print(FL);
     Serial.print(",");
     Serial.println(FR);
     float diff = FL-FR;
-    float angle = max(1, abs(atan2(diff, 14) * 180 / M_PI));
-    if(diff > 1){
+    float angle = max(1, abs(atan2(diff, 13) * 180 / M_PI));
+    if(diff > 0.5){
       rotateCW(angle);
-    }else if(diff < -1){
+    }else if(diff < -0.5){
       rotateCCW(angle);
     }
     
@@ -413,7 +395,7 @@ void calibrateFront(){
   FM = sensorReadings[1];
   FR = sensorReadings[2];
   
-  float avg = (FL+FR)/3;
+  float avg = (FL+FM+FR)/3;
   
   while(abs(avg-8.5) > 0.1 && calibrateCount < 5){
     float frontDiff = avg -8.5;
@@ -428,7 +410,7 @@ void calibrateFront(){
     FL = sensorReadings[0];
     FM = sensorReadings[1];
     FR = sensorReadings[2];
-    avg = (FL+FR)/3;
+    avg = (FL+FM+FR)/3;
   }
   
    mode = MODE_STOP;
@@ -487,6 +469,43 @@ void moveStraight(float dist){
     RMag = -1;
   }
   motorDistChkPt = FORWARD_DIST*dist/10.0;
+
+//  Serial.print("F ");
+//  Serial.println(motorDistChkPt);
+  
+  while(true){
+    if(motorLRun && motorLAccmEncoderCount < motorDistChkPt){
+      md.setM2Speed(LMag*motorLPWM/255.0*400.0);
+    }else {
+      robotStop();
+      break;
+    }
+    
+    if(motorRRun && motorRAccmEncoderCount < motorDistChkPt){
+      md.setM1Speed(RMag*motorRPWM/255.0*400.0);
+    }else {
+      robotStop();
+      break;
+    }
+  }
+}
+
+void drift(boolean isRight){
+  motorRAccmEncoderCount = 0;
+  motorLAccmEncoderCount = 0;
+  motorLPrevAccmEncoderCount = 0;
+  motorRPrevAccmEncoderCount = 0;
+  motorLRun = true;
+  motorRRun = true;
+  motorLPWM = -237;
+  motorRPWM = 100;
+  if(!isRight){
+    motorLPWM = -100;
+    motorRPWM = 237;
+  }
+  LMag = 1;
+  RMag = 1;
+  motorDistChkPt = 2400;
 
 //  Serial.print("F ");
 //  Serial.println(motorDistChkPt);
