@@ -28,27 +28,34 @@ class Test(threading.Thread):
 		while True:
 			# if (count == 1):
 				# break
-			d  = None
-			if msg[1] == 'l':
-				d = msg[0] + chr(0b00000110) + chr(0b00000001)
-			elif msg[1] == 'r':
-				d = msg[0] + chr(0b00000101) + chr(0b00000001)
-			elif msg[1] == 's':
-				d = msg[0] + chr(0b00000111) + chr(0b00000001)
-			elif msg[1] == 'b':
-				d = msg[0] + chr(0b00000100) + chr(0b00000001)		
-			elif msg[1] == 'c':
-				d = msg[0] + chr(0b00001100) + chr(0b00000000)		
+			try:
+				d  = None
+				if msg[1] == 'l':
+					d = msg[0] + chr(0b00000110) + chr(0b00000001)
+				elif msg[1] == 'r':
+					d = msg[0] + chr(0b00000101) + chr(0b00000001)
+				elif msg[1] == 's':
+					d = msg[0] + chr(0b00000111) + chr(0b00000001)
+				elif msg[1] == 'b':
+					d = msg[0] + chr(0b00000100) + chr(0b00000001)		
+				elif msg[1] == 'c':
+					d = msg[0] + chr(0b00001111) + chr(0b00000000)
+				elif msg[1] == 'k':
+					d = msg[0] + chr(0b00001110) + chr(0b00000000)
+				elif msg[1] == 'd':
+					d = msg[0] + chr(0b01000111) + chr(64 + int(msg[2]))	
 
-			if d is not None:
-				self.client_socket.send(d+"\n")
-			else:
-				self.client_socket.send(msg+"\n")
+				if d is not None:
+					self.client_socket.send(d)
+				else:
+					self.client_socket.send(msg)
 
-			print "sending: ", msg
-			# print "Enter text to send: "
-			msg = raw_input("Enter a value:")
-			# count += 1
+				print "sending: ", msg
+				# print "Enter text to send: "
+				msg = raw_input("Enter a value:")
+				# count += 1
+			except:
+				pass
 		print "quit write()"
 
 	# Receive data

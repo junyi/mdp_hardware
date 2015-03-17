@@ -13,9 +13,9 @@
 #define SENSOR_IR_FRONT_MIDDLE A0
 #define SENSOR_IR_FRONT_LEFT   A1
 #define SENSOR_IR_FRONT_RIGHT  A2
-#define SENSOR_IR_LEFT_MIDDLE  A3
+#define SENSOR_IR_RIGHT_TOP    A3
 #define SENSOR_IR_RIGHT_MIDDLE A4
-#define SENSOR_IR_RIGHT_TOP    A5
+#define SENSOR_IR_LEFT_MIDDLE  A5
 
 #define FORWARD B11
 #define CW      B10
@@ -33,18 +33,20 @@ DualVNH5019MotorShield md;
 DistanceGP2Y0A21YK frontMiddle(0);
 DistanceGP2Y0A21YK frontLeft(1);
 DistanceGP2Y0A21YK frontRight(2);
-DistanceGP2Y0A21YK leftMiddle(3);
+DistanceGP2Y0A21YK rightTop(3);
 DistanceGP2Y0A21YK rightMiddle(4);
-DistanceGP2Y0A21YK rightTop(5);
+DistanceGP2Y0A21YK leftMiddle(5);
 
 int  motorLAccmEncoderCount = 0;      //Accumulated encoder's ticks count of left motor
-int  motorLNetEncoderCount = 0;       //Net encoder's ticks count of left motor
+volatile long  motorLNetEncoderCount = 0;       //Net encoder's ticks count of left motor
 int  motorRAccmEncoderCount = 0;      //Accumulated encoder's ticks count of right motor
-int  motorRNetEncoderCount = 0;       //Net encoder's ticks count of right motor
+volatile long  motorRNetEncoderCount = 0;       //Net encoder's ticks count of right motor
+volatile int motorLOldA=0, motorROldA=0, motorLNewB=0, motorRNewB=0;
 
 double  motorLPWM = 0;                   //PWM (0 - 255) of left motor
 double  motorRPWM = 0;                   //PWM (0 - 255) of right motor
 double  motorDistChkPt = 100;              //Final estimated travelled distance/encoder check point of both motors
+int numGrids = 1;
 
 const byte MODE_STOP = B00;
 const byte MODE_EXPLORE = B01;
@@ -65,21 +67,25 @@ volatile boolean hasCalibrated = false;
 volatile boolean start = false;
 /******************** END ********************/
 
-double FORWARD_PWM_L = 166;
+double FORWARD_PWM_L = 165.5;
 double FORWARD_PWM_R = 167;
-int FORWARD_DIST = 482;
+int FORWARD_DIST = 482*2;
 
-double CCW_PWM_L = 200;
-double CCW_PWM_R = 189;
-int CCW_DIST = 783; // 783
+double CCW_PWM_L = 180;
+double CCW_PWM_R = 180;
+//int CCW_DIST = 783*2; // 783
+int CCW_DIST = 16.02/4.0/6.0*2294;
 double CW_PWM_L = 180;
 double CW_PWM_R = 180;
-int CW_DIST = 760; // 706
+//int CW_DIST = 760*2; // 706
+int CW_DIST = 15.99/4.0/6.0*2294;
 double BACK_PWM_L = 180;
 double BACK_PWM_R = 180;
-int BACK_DIST = 1610;
+//int BACK_DIST = 1610*2;
+int BACK_DIST = CW_DIST*2;
 
-float RIGHT_TOP_OFFSET = 12; 
+float RIGHT_TOP_OFFSET = 2.5; 
+float LEFT_MIDDLE_OFFSET = 7.5; 
 
 String inputString = "";
 
@@ -94,7 +100,7 @@ int LMag = 1;
 int RMag = -1;
 
 void setup(){
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   // inputString.reserve(20);
     
@@ -112,8 +118,10 @@ void setup(){
   
   md.init();
 
-  PCintPort::attachInterrupt(MOTOR_L_ENCODER_A, &motorLISR, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
-  PCintPort::attachInterrupt(MOTOR_R_ENCODER_A, &motorRISR, CHANGE);  //Attach right motor encoder interrupt pin to the ISR
+  PCintPort::attachInterrupt(MOTOR_L_ENCODER_A, &motorLISRA, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
+  PCintPort::attachInterrupt(MOTOR_L_ENCODER_B, &motorLISRB, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
+  PCintPort::attachInterrupt(MOTOR_R_ENCODER_A, &motorRISRA, CHANGE);  //Attach right motor encoder interrupt pin to the ISR
+  PCintPort::attachInterrupt(MOTOR_R_ENCODER_B, &motorRISRB, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
   
 }
 
@@ -150,26 +158,42 @@ void loop(){
 }
 
 void readAllSensors() {
-  int l = mode == MODE_CALIBRATE ? 50 : 50;
+  int l = mode == MODE_CALIBRATE ? 10 : 10;
+  for(int i=0; i<l; i++) {
+    sensorReadings[0] = frontLeft.getDistanceMedian2();
+    sensorReadings[1] = frontMiddle.getDistanceMedian2();
+    sensorReadings[2] = frontRight.getDistanceMedian2();
+    sensorReadings[3] = leftMiddle.getDistanceMedian2() - LEFT_MIDDLE_OFFSET;
+    sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
+    sensorReadings[5] = rightMiddle.getDistanceMedian2();
+  }
+}
+
+void readAllSensors2() {
+  int l = mode == MODE_CALIBRATE ? 10 : 10;
   for(int i=0; i<l; i++) {
     sensorReadings[0] = frontLeft.getDistanceMedian();
     sensorReadings[1] = frontMiddle.getDistanceMedian();
     sensorReadings[2] = frontRight.getDistanceMedian();
-    sensorReadings[3] = leftMiddle.getDistanceMedian();
-    sensorReadings[4] = rightTop.getDistanceMedian();
+    sensorReadings[3] = leftMiddle.getDistanceMedian() - LEFT_MIDDLE_OFFSET;
+    sensorReadings[4] = rightTop.getDistanceMedian() - RIGHT_TOP_OFFSET;
     sensorReadings[5] = rightMiddle.getDistanceMedian();
   }
 }
 
 void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial communication
   byte command;
+  byte buf[2];
   Serial.flush();
   
   //When there's a data in the receiveing buffer, and both the motors have completed their moves
-  if(Serial.available() && !motorLRun && !motorRRun) {
+  if(Serial.available() == 2 && !motorLRun && !motorRRun) {
     int data1 = Serial.read();          //First byte of data is moving command
     int data2 = Serial.read();          //Second byte of data is distance
     
+//    Serial.print("serial received: ");
+//    Serial.print((char) data1);
+//    Serial.println((char) data2);
     //Initialization for robot
     if(((char) data1) == '*'){
       start = true;
@@ -183,27 +207,60 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
       sense = (boolean) ((data1 & 0x40) >> 6) & 1;
       mode = (command & 0x0C) >> 2;         //Bit 0-1 represents start or stop
       dir = (command & 0x03);    //Bits 2-3 represent direction to move
+      
+      if(mode == MODE_CALIBRATE)
+        sense = false;
     }
     
-    if(data2 != -1 && dir == B11) {
-      command = byte(data2);
-      motorDistChkPt = int(command & 0x0F) * FORWARD_DIST;  //Bits 3-6 represent number of grids required to move (1 grid = 10cm)
+    if(sense){
+      replyWithSensorData();
+      return;
     }
+    
+    if(data1 == 'x'){
+      if(data2 == '1'){
+        rotate(2, CW);
+      }else{
+        rotate(2, CCW);
+      }
+    }
+    
+    if(data1 == 'k'){
+      calibrateRotation(RIGHT);
+    }
+    
+    if(data2 != -1 && dir == FORWARD) {
+      command = byte(data2);
+      numGrids = int(command & 0x0F);
+//      Serial.print("num grids: ");
+//      Serial.println(numGrids);
+//      motorDistChkPt = int(command & 0x0F) * 2249 / 2 / (6*PI) * 10;  //Bits 3-6 represent number of grids required to move (1 grid = 10cm)
+    }
+    
+      if(mode == MODE_EXPLORE){
+        parseMove();
+      }else if(mode == MODE_CALIBRATE){
+        if(dir == FORWARD){
+          calibrateDistance();
+          calibrateRotation(FRONT);
+          calibrateDistance();
+          calibrateRotation(FRONT);
+        }else if(dir == CW){
+          delay(500);
+          calibrateRotation(RIGHT);
+//          delay(300);
+//          calibrateRotation(RIGHT);
+        }
+        hasSent = false;
+        return;
+      }
   }
 
-  replyWithSensorData();
-  if(mode == MODE_EXPLORE){
-    parseMove();
-  }else if(mode == MODE_CALIBRATE){
-//    calibrateDistance();
-    calibrateRotation(RIGHT);
-//    calibrateDistance();
-//    calibrateRotation(FRONT);
-  }
+
 }
 
 void replyWithSensorData(){
-  if(sense && !motorLRun && !motorRRun){
+  if(sense && !motorLRun && !motorRRun && mode != MODE_CALIBRATE){
 
     readAllSensors();
       
@@ -214,6 +271,7 @@ void replyWithSensorData(){
     Serial.println();
 
     sense = false;
+//    hasSent = false;
   }
 }
 
@@ -225,7 +283,7 @@ void parseMove(){
     
     switch(dir){
       case FORWARD:
-        straight(10);
+        straight(numGrids * 10);
 //        delay(DELAY_PERIOD);
 //        calibrateSide();
         break;
@@ -244,35 +302,20 @@ void parseMove(){
 }
 
 void robotStop(){
-  if(dir == FORWARD){
-    md.setBrakes(300, 300);
-  }else{
-    md.setBrakes(400, 400);
-  }
+  //if(dir == FORWARD){
+  md.setBrakes(400, 400);
+  //
+  
+//  Serial.print("Stop: L ");
+//  Serial.print(motorLNetEncoderCount);
+//  Serial.print(" R ");
+//  Serial.println(motorRNetEncoderCount);
   
   motorRNetEncoderCount = 0;
   motorLNetEncoderCount = 0;
   motorLRun = false;
   motorRRun = false;
 }
-
-//void calibrateSide(){
-//  readAllSensors();
-//  float RL = sensorReadings[RIGHT]-RIGHT_TOP_OFFSET;
-//  float RR = sensorReadings[RIGHT + 1];
-//  
-//  Serial.print(RL);
-//  Serial.print(" ");
-//  Serial.println(RR);
-//
-//  float leftTolerance = 30;
-//  float rightTolerance = 30;
-//  if((LL+LR)/2 < leftTolerance){
-//    calibrateRotation(LEFT, false);
-//  }else if((RR+RL)/2 < rightTolerance){
-//    calibrateRotation(RIGHT, false);
-//  }
-//}
 
 void calibrateRotation(int side){
   calibrateRotation(side, true);
@@ -281,15 +324,13 @@ void calibrateRotation(int side){
 void calibrateRotation(int side, bool readAll){
   if(readAll)
     readAllSensors();
+//  Serial.print(sensorReadings[RIGHT]);
+//  Serial.print(" ");
+//  Serial.println(sensorReadings[RIGHT + 1]);
+  float L = sensorReadings[RIGHT];
+  float R = sensorReadings[RIGHT + 1];
   
-  float L;
-  float R;
-  
-  if(side == RIGHT){
-    L = sensorReadings[RIGHT];
-    R = sensorReadings[RIGHT + 1];
-    L -= RIGHT_TOP_OFFSET;
-  }else if(side == FRONT){
+  if(side == FRONT){
     L = sensorReadings[FRONT];
     R = sensorReadings[FRONT + 2];
   }
@@ -303,18 +344,18 @@ void calibrateRotation(int side, bool readAll){
       separation = 11;
   }
   
-  Serial.print(L);
-  Serial.print(" ");
-  Serial.print(R);
-  Serial.print(" ");
-  
+//  Serial.print(L);
+//  Serial.print(" ");
+//  Serial.println(R);
+//  Serial.print(" ");
+//  
   float tolerance = 0;
-  if(abs(L-R) > tolerance){
-    float diff = L-R;
+  float diff = side == FRONT ? L-R : L-R;
+  if(abs(diff) > tolerance){
     float angle = abs(atan2(diff, separation) * 180 / M_PI);
-    if(int(angle) <= 1)
+    if(angle > 25)
       return;
-    Serial.println(angle);
+//    Serial.println(angle);
     if(diff > tolerance){
       rotate(angle, CW);
     }else if(diff < -tolerance){
@@ -328,6 +369,8 @@ void calibrateDistance(){
   float L = sensorReadings[FRONT];
   float R = sensorReadings[FRONT + 2];
   float avg = (L+R)/2;
+  if(avg > 20)
+    return;
   float cutoff = 8.5;
   float tolerance = 0.1;
   if(abs(avg - cutoff) > tolerance){
@@ -354,6 +397,8 @@ void move(float leftPWM, float rightPWM, int setPoint){
     if(motorLRun && abs(motorLNetEncoderCount) < setPoint){
       md.setM2Speed(leftPWM/255.0*400.0);
     }else {
+//      Serial.print("L ");
+//      Serial.println(motorLNetEncoderCount);
       robotStop();
       break;
     }
@@ -361,6 +406,8 @@ void move(float leftPWM, float rightPWM, int setPoint){
     if(motorRRun && abs(motorRNetEncoderCount) < setPoint){
       md.setM1Speed(rightPWM/255.0*400.0);
     }else {
+//      Serial.print("R ");
+//      Serial.println(motorRNetEncoderCount);
       robotStop();
       break;
     }
@@ -381,7 +428,16 @@ void straight(float dist){
   }
   motorLPWM = LMag * FORWARD_PWM_L;
   motorRPWM = RMag * FORWARD_PWM_R;
-  motorDistChkPt = FORWARD_DIST*dist/10.0;
+
+  motorDistChkPt = dist * 2249 / (6*PI);
+  
+  if(dist == 10){
+    motorDistChkPt = dist * 2249 / (6*PI) / 1.064318;
+  }
+  
+
+  
+//  Serial.println(motorDistChkPt);
 
   move(motorLPWM, motorRPWM, motorDistChkPt);
 }
@@ -389,10 +445,12 @@ void straight(float dist){
 void rotate(float angle, byte dir){
   resetMove();
   if(dir == CW){
+//    Serial.println("CW");
     motorLPWM = -CW_PWM_L;
     motorRPWM = -CW_PWM_R;
     motorDistChkPt = CW_DIST*angle/90.0;
   }else{
+//    Serial.println("CCW");
     motorLPWM = CCW_PWM_L;
     motorRPWM = CCW_PWM_R;
     motorDistChkPt = CCW_DIST*angle/90.0;
@@ -410,41 +468,22 @@ void back(){
   move(motorLPWM, motorRPWM, motorDistChkPt);
 }
 
-void motorLISR() {    //ISR for left motor encoder interrupt
-  motorLAccmEncoderCount++;
-  
-  if(digitalReadFast(MOTOR_L_ENCODER_A) == HIGH) {  //Low-to-high edge on channel A
-    //Check channel B to see which way the motor is turning
-    if (digitalReadFast(MOTOR_L_ENCODER_B) == LOW) {
-      motorLNetEncoderCount++;      //Motor is turning forward (clockwise)
-    }
-    else motorLNetEncoderCount--;   //Motor is moving backward (anti-clockwise)
-  }
-  else {  //High-to-low edge on channel A
-    //Check channel B to see which way encoder is turning
-    if (digitalReadFast(MOTOR_L_ENCODER_B) == HIGH) {
-      motorLNetEncoderCount++;      //Motor is turning forward (clockwise)
-    }
-    else motorLNetEncoderCount--;   //Motor is moving backward (anti-clockwise)
-  }
+void motorLISRA() {    //ISR for left motor encoder interrupt
+  motorLNewB ^ motorLOldA ? motorLNetEncoderCount++: motorLNetEncoderCount--;
+  motorLOldA = digitalReadFast(MOTOR_L_ENCODER_A);
 }
 
-void motorRISR() {    //ISR for right motor encoder interrupt
-  motorRAccmEncoderCount++;
-  
-  if(digitalReadFast(MOTOR_R_ENCODER_A) == HIGH) {  //Low-to-high edge on channel A
-    //Check channel B to see which way the motor is turning
-    if (digitalReadFast(MOTOR_R_ENCODER_B) == HIGH) {
-      motorRNetEncoderCount++;      //Motor is turning forward (clockwise)
-    }
-    else motorRNetEncoderCount--;   //Motor is moving backward (anti-clockwise)
-  }
-  else {  //High-to-low edge on channel A
-    //Check channel B to see which way encoder is turning
-    if (digitalReadFast(MOTOR_R_ENCODER_B) == LOW) {
-      motorRNetEncoderCount++;      //Motor is turning forward (clockwise)
-    }
-    else motorRNetEncoderCount--;   //Motor is moving backward (anti-clockwise)
-  }
+void motorLISRB() {    //ISR for left motor encoder interrupt
+  motorLNewB = digitalReadFast(MOTOR_L_ENCODER_B);
+  motorLNewB ^ motorLOldA ? motorLNetEncoderCount++ : motorLNetEncoderCount--;
 }
 
+void motorRISRA() {    //ISR for left motor encoder interrupt
+  motorRNewB ^ motorROldA ? motorRNetEncoderCount--: motorRNetEncoderCount++;
+  motorROldA = digitalReadFast(MOTOR_R_ENCODER_A);
+}
+
+void motorRISRB() {    //ISR for left motor encoder interrupt
+  motorRNewB = digitalReadFast(MOTOR_R_ENCODER_B);
+  motorRNewB ^ motorROldA ? motorRNetEncoderCount-- : motorRNetEncoderCount++;
+}
