@@ -159,6 +159,8 @@ void loop(){
 
 void readAllSensors() {
   int l = mode == MODE_CALIBRATE ? 10 : 10;
+//  if(mode == MODE_CALIBRATE && dir == RIGHT)
+//    l = 1;
   for(int i=0; i<l; i++) {
     sensorReadings[0] = frontLeft.getDistanceMedian2();
     sensorReadings[1] = frontMiddle.getDistanceMedian2();
@@ -167,6 +169,24 @@ void readAllSensors() {
     sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
     sensorReadings[5] = rightMiddle.getDistanceMedian2();
   }
+}
+
+void readSensorsTillStable(int i, int j){
+  double prevI, prevJ;
+  int count = 0;
+  do{
+    prevI = sensorReadings[i];
+    prevJ = sensorReadings[j];
+    sensorReadings[0] = frontLeft.getDistanceMedian2();
+    sensorReadings[1] = frontMiddle.getDistanceMedian2();
+    sensorReadings[2] = frontRight.getDistanceMedian2();
+    sensorReadings[3] = leftMiddle.getDistanceMedian2() - LEFT_MIDDLE_OFFSET;
+    sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
+    sensorReadings[5] = rightMiddle.getDistanceMedian2();
+    count++;
+    if(count > 100)
+      break;
+  }while(abs(sensorReadings[i] - prevI) >= 0.02 || abs(sensorReadings[j] - prevJ) >= 0.02);
 }
 
 void readAllSensors2() {
@@ -243,13 +263,13 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
         if(dir == FORWARD){
           calibrateDistance();
           calibrateRotation(FRONT);
-          calibrateDistance();
-          calibrateRotation(FRONT);
+//          calibrateDistance();
+//          calibrateRotation(FRONT);
         }else if(dir == CW){
           delay(500);
-          calibrateRotation(RIGHT);
-//          delay(300);
 //          calibrateRotation(RIGHT);
+//          delay(300);
+          calibrateRotation(RIGHT, true);
         }
         hasSent = false;
         return;
@@ -317,23 +337,28 @@ void robotStop(){
   motorRRun = false;
 }
 
-void calibrateRotation(int side){
-  calibrateRotation(side, true);
-}
+//void calibrateRotation(int side){
+//  calibrateRotation(side, true);
+//}
 
 void calibrateRotation(int side, bool readAll){
-  if(readAll)
-    readAllSensors();
+  float L, R;
+
+  if(side == FRONT){
+    if(readAll)
+      readSensorsTillStable(FRONT, FRONT + 2);
+    L = sensorReadings[FRONT];
+    R = sensorReadings[FRONT + 2];
+  }else if(side == RIGHT){
+    if(readAll)
+      readSensorsTillStable(RIGHT, RIGHT + 1);
+    L = sensorReadings[RIGHT];
+    R = sensorReadings[RIGHT + 1];
+  }
+  
 //  Serial.print(sensorReadings[RIGHT]);
 //  Serial.print(" ");
 //  Serial.println(sensorReadings[RIGHT + 1]);
-  float L = sensorReadings[RIGHT];
-  float R = sensorReadings[RIGHT + 1];
-  
-  if(side == FRONT){
-    L = sensorReadings[FRONT];
-    R = sensorReadings[FRONT + 2];
-  }
   
   float separation = 14.6;
   switch(side){
@@ -361,6 +386,40 @@ void calibrateRotation(int side, bool readAll){
     }else if(diff < -tolerance){
       rotate(angle, CCW);
     }
+  }
+}
+
+void calibrateRotation(int side){
+  calibrateRotation(side, true);
+}
+
+void calibrateRotation2(int side, bool readAll){
+  float L = rightTop.getDistanceMedian() - RIGHT_TOP_OFFSET;
+  float R = rightMiddle.getDistanceMedian();
+  
+  float separation = 14.6;
+  switch(side){
+    case FRONT:
+      separation = 14.6;
+      break;
+   case RIGHT:
+      separation = 11;
+  }
+  
+  float tolerance = 0;
+  
+  int count = 0;
+  while(abs(L-R) > 0.1 && count < 100){
+    delay(50);
+    L = rightTop.getDistanceMedian() - RIGHT_TOP_OFFSET;
+    R = rightMiddle.getDistanceMedian();
+    float diff = L - R;
+    if(diff > tolerance){
+      rotate(0.5, CW);
+    }else if(diff < -tolerance){
+      rotate(0.5, CCW);
+    }
+    count++;
   }
 }
 
