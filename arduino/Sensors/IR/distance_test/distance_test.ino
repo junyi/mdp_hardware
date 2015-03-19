@@ -72,7 +72,7 @@ void readAllSensors(){
 //  int filtered = Filter3.run(x);
 //  sensorReadings[3] = filtered;
   sensorReadings[0] = sensor.getDistanceMedian();
-//  sensorReadings[1] = analogRead(SENSOR_IR);
+  sensorReadings[1] = analogRead(SENSOR_IR);
 //  sensorReadings[1] = frontLeft.getDistanceMedian();
 //  sensorReadings[2] = frontRight.getDistanceMedian();
 //  sensorReadings[3] = left.getDistanceMedian();

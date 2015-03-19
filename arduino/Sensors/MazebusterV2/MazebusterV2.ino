@@ -17,6 +17,11 @@
 #define SENSOR_IR_RIGHT_MIDDLE A4
 #define SENSOR_IR_LEFT_MIDDLE  A5
 
+#define ULTRA_RPWM  6                                        // PWM Output 0-25000us,every 50us represent 1cm
+#define ULTRA_RTRIG 7                                       // PWM trigger pin
+
+uint8_t CMD_DISTANCE[]={0x44,0x22,0xbb,0x01};          // distance measure command
+
 #define FORWARD B11
 #define CW      B10
 #define CCW     B01
@@ -68,24 +73,28 @@ volatile boolean start = false;
 /******************** END ********************/
 
 double FORWARD_PWM_L = 165.5;
-double FORWARD_PWM_R = 167;
+double FORWARD_PWM_R = 161.5; // actual lab
+//double FORWARD_PWM_R = 163; // student lounge
 int FORWARD_DIST = 482*2;
 
 double CCW_PWM_L = 180;
 double CCW_PWM_R = 180;
-//int CCW_DIST = 783*2; // 783
-int CCW_DIST = 16.02/4.0/6.0*2294;
+//int CCW_DIST = 16.02/4.0/6.0*2294;  // actual lab
+int CCW_DIST = 15.7/4.0/6.0*2294; // student lounge
 double CW_PWM_L = 180;
 double CW_PWM_R = 180;
-//int CW_DIST = 760*2; // 706
-int CW_DIST = 15.99/4.0/6.0*2294;
+//int CW_DIST = 15.99/4.0/6.0*2294; // actual lab
+int CW_DIST = 16.3/4.0/6.0*2294; // student lounge
 double BACK_PWM_L = 180;
 double BACK_PWM_R = 180;
-//int BACK_DIST = 1610*2;
 int BACK_DIST = CW_DIST*2;
 
+//float FRONT_CUTOFF = 8.5; // actual lab
+float FRONT_CUTOFF = 8; // student lounge
 float RIGHT_TOP_OFFSET = 2.5; 
 float LEFT_MIDDLE_OFFSET = 7.5; 
+
+float CALIBRATION_THRESHOLD = 20;
 
 String inputString = "";
 
@@ -99,11 +108,24 @@ float previousRightReading = 0;
 int LMag = 1;
 int RMag = -1;
 
+void ultrasonicSetup(){ 
+  pinMode(ULTRA_RTRIG,OUTPUT);                            // A low pull on pin COMP/TRIG
+  digitalWrite(ULTRA_RTRIG,HIGH);                         // Set to HIGH
+  
+  pinMode(ULTRA_RPWM, INPUT);                             // Sending Enable PWM mode command
+  
+  for(int i=0;i<4;i++){
+      Serial.write(CMD_DISTANCE[i]);
+  } 
+  Serial.println();  
+}
+
 void setup(){
   Serial.begin(115200);
   
   // inputString.reserve(20);
-    
+//  ultrasonicSetup();
+
   pinMode(MOTOR_L_ENCODER_A, INPUT);
   pinMode(MOTOR_L_ENCODER_B, INPUT);
   pinMode(MOTOR_R_ENCODER_A, INPUT);
@@ -125,11 +147,16 @@ void setup(){
   
 }
 
+unsigned long timer = 0;
+unsigned long lastTime = 0;
+unsigned int ultrasonicDistance = 0;
+
 void loop(){
   if(!start){
     return;
   }
-    
+  
+  
   // if(sense && !motorLRun && !motorRRun){
 
   //   readAllSensors();
@@ -152,20 +179,40 @@ void loop(){
   // }
   
   if(!hasSent && !motorLRun && !motorRRun){
-    Serial.println("*");
+    Serial.println("p*");
     hasSent = true;
   }
+}
+
+void readUltrasonic(){                                     // a low pull on pin COMP/TRIG  triggering a sensor reading
+  ultrasonicSetup();  
+  md.setSpeeds(0, 0);
+  delay(50);
+  digitalWrite(ULTRA_RTRIG, LOW); 
+  digitalWrite(ULTRA_RTRIG, HIGH);                      // reading Pin PWM will output pulses   
+  unsigned long distanceMeasured = pulseIn(ULTRA_RPWM, LOW);
+
+  if(distanceMeasured==50000){                     // the reading is invalid.
+    ultrasonicDistance = -1;
+  }
+  else{
+    ultrasonicDistance = distanceMeasured/50;                  // every 50us low level stands for 1cm
+  }
+  md.init();
 }
 
 void readAllSensors() {
   int l = mode == MODE_CALIBRATE ? 10 : 10;
 //  if(mode == MODE_CALIBRATE && dir == RIGHT)
 //    l = 1;
+  do{
+    readUltrasonic();
+  }while(ultrasonicDistance == 0 || ultrasonicDistance > 500);
   for(int i=0; i<l; i++) {
     sensorReadings[0] = frontLeft.getDistanceMedian2();
     sensorReadings[1] = frontMiddle.getDistanceMedian2();
     sensorReadings[2] = frontRight.getDistanceMedian2();
-    sensorReadings[3] = leftMiddle.getDistanceMedian2() - LEFT_MIDDLE_OFFSET;
+    sensorReadings[3] = ultrasonicDistance;
     sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
     sensorReadings[5] = rightMiddle.getDistanceMedian2();
   }
@@ -174,17 +221,20 @@ void readAllSensors() {
 void readSensorsTillStable(int i, int j){
   double prevI, prevJ;
   int count = 0;
+//  do{
+//    readUltrasonic();
+//  }while(ultrasonicDistance == 0 || ultrasonicDistance > 500);
   do{
     prevI = sensorReadings[i];
     prevJ = sensorReadings[j];
-    sensorReadings[0] = frontLeft.getDistanceMedian2();
-    sensorReadings[1] = frontMiddle.getDistanceMedian2();
-    sensorReadings[2] = frontRight.getDistanceMedian2();
-    sensorReadings[3] = leftMiddle.getDistanceMedian2() - LEFT_MIDDLE_OFFSET;
-    sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
-    sensorReadings[5] = rightMiddle.getDistanceMedian2();
+    sensorReadings[0] = frontLeft.getDistanceMedianStable() + 0.02;
+    sensorReadings[1] = frontMiddle.getDistanceMedianStable();
+    sensorReadings[2] = frontRight.getDistanceMedianStable();
+//    sensorReadings[3] = ultrasonicDistance;
+    sensorReadings[4] = rightTop.getDistanceMedianStable() - RIGHT_TOP_OFFSET;
+    sensorReadings[5] = rightMiddle.getDistanceMedianStable();
     count++;
-    if(count > 100)
+    if(count > 30)
       break;
   }while(abs(sensorReadings[i] - prevI) >= 0.02 || abs(sensorReadings[j] - prevJ) >= 0.02);
 }
@@ -232,17 +282,17 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
         sense = false;
     }
     
-    if(sense){
-      replyWithSensorData();
-      return;
-    }
-    
     if(data1 == 'x'){
       if(data2 == '1'){
-        rotate(2, CW);
+        rotate(1, CW);
       }else{
-        rotate(2, CCW);
+        rotate(1, CCW);
       }
+    }
+    
+    if(sense && dir == B00){
+      replyWithSensorData();
+      return;
     }
     
     if(data1 == 'k'){
@@ -263,13 +313,14 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
         if(dir == FORWARD){
           calibrateDistance();
           calibrateRotation(FRONT);
-//          calibrateDistance();
-//          calibrateRotation(FRONT);
+          calibrateDistance();
+          calibrateRotation(FRONT);
+          delay(50);
         }else if(dir == CW){
-          delay(500);
 //          calibrateRotation(RIGHT);
 //          delay(300);
           calibrateRotation(RIGHT, true);
+          delay(50);
         }
         hasSent = false;
         return;
@@ -283,7 +334,7 @@ void replyWithSensorData(){
   if(sense && !motorLRun && !motorRRun && mode != MODE_CALIBRATE){
 
     readAllSensors();
-      
+    Serial.print("p");
     for(int i=0; i<6; i++){
       Serial.print(sensorReadings[i]);
       Serial.print(" ");
@@ -349,12 +400,19 @@ void calibrateRotation(int side, bool readAll){
       readSensorsTillStable(FRONT, FRONT + 2);
     L = sensorReadings[FRONT];
     R = sensorReadings[FRONT + 2];
+//    Serial.print("p");
+//    Serial.print(L);
+//    Serial.print(" ");
+//    Serial.println(R);
   }else if(side == RIGHT){
     if(readAll)
       readSensorsTillStable(RIGHT, RIGHT + 1);
     L = sensorReadings[RIGHT];
     R = sensorReadings[RIGHT + 1];
   }
+  
+  if((L+R)/2 > CALIBRATION_THRESHOLD)
+    return;
   
 //  Serial.print(sensorReadings[RIGHT]);
 //  Serial.print(" ");
@@ -424,13 +482,13 @@ void calibrateRotation2(int side, bool readAll){
 }
 
 void calibrateDistance(){
-  readAllSensors();
+  readSensorsTillStable(FRONT, FRONT + 2);
   float L = sensorReadings[FRONT];
   float R = sensorReadings[FRONT + 2];
   float avg = (L+R)/2;
-  if(avg > 20)
+  if(avg > CALIBRATION_THRESHOLD)
     return;
-  float cutoff = 8.5;
+  float cutoff = FRONT_CUTOFF; 
   float tolerance = 0.1;
   if(abs(avg - cutoff) > tolerance){
     float frontDiff = avg - cutoff;
@@ -491,7 +549,8 @@ void straight(float dist){
   motorDistChkPt = dist * 2249 / (6*PI);
   
   if(dist == 10){
-    motorDistChkPt = dist * 2249 / (6*PI) / 1.064318;
+    motorDistChkPt = dist * 2249 / (6*PI) / 1.07182; // actual lab
+//    motorDistChkPt = dist * 2249 / (6*PI) / 1.055; // student lounge
   }
   
 
