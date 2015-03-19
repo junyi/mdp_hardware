@@ -73,7 +73,7 @@ volatile boolean start = false;
 /******************** END ********************/
 
 double FORWARD_PWM_L = 165.5;
-double FORWARD_PWM_R = 161.5; // actual lab
+double FORWARD_PWM_R = 162.5; // actual lab
 //double FORWARD_PWM_R = 163; // student lounge
 int FORWARD_DIST = 482*2;
 
@@ -301,7 +301,7 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
     
     if(data2 != -1 && dir == FORWARD) {
       command = byte(data2);
-      numGrids = int(command & 0x0F);
+      numGrids = int(command & 0x1F);
 //      Serial.print("num grids: ");
 //      Serial.println(numGrids);
 //      motorDistChkPt = int(command & 0x0F) * 2249 / 2 / (6*PI) * 10;  //Bits 3-6 represent number of grids required to move (1 grid = 10cm)
