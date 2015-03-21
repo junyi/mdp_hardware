@@ -3,8 +3,10 @@
 #include <PID_v1.h>
 #include <DistanceGP2Y0A21YK.h>
 #include <digitalWriteFast.h>
+#include <NewPing.h>
 
 #define STUDENT_LOUNGE
+#define DEBUG false
 #define MOTOR_L_ENCODER_A 3
 #define MOTOR_L_ENCODER_B 5
 
@@ -20,6 +22,7 @@
 
 #define ULTRA_RPWM  6                                        // PWM Output 0-25000us,every 50us represent 1cm
 #define ULTRA_RTRIG 7                                       // PWM trigger pin
+#define MAX_DISTANCE 300 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
 uint8_t CMD_DISTANCE[]={0x44,0x22,0xbb,0x01};          // distance measure command
 
@@ -36,6 +39,8 @@ uint8_t CMD_DISTANCE[]={0x44,0x22,0xbb,0x01};          // distance measure comma
 
 DualVNH5019MotorShield md; 
 
+NewPing sonar(ULTRA_RTRIG, ULTRA_RPWM, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
+
 DistanceGP2Y0A21YK frontMiddle(0);
 DistanceGP2Y0A21YK frontLeft(1);
 DistanceGP2Y0A21YK frontRight(2);
@@ -43,11 +48,16 @@ DistanceGP2Y0A21YK rightTop(3);
 DistanceGP2Y0A21YK rightMiddle(4);
 DistanceGP2Y0A21YK leftMiddle(5);
 
-int  motorLAccmEncoderCount = 0;      //Accumulated encoder's ticks count of left motor
-volatile long  motorLNetEncoderCount = 0;       //Net encoder's ticks count of left motor
-int  motorRAccmEncoderCount = 0;      //Accumulated encoder's ticks count of right motor
-volatile long  motorRNetEncoderCount = 0;       //Net encoder's ticks count of right motor
-volatile int motorLOldA=0, motorROldA=0, motorLNewB=0, motorRNewB=0;
+volatile int motorLOldA = 0, motorROldA = 0, motorLNewB = 0, motorRNewB = 0;
+
+int motorLAccmEncoderCount = 0;      //Accumulated encoder's ticks count of left motor
+int motorLPrevAccmEncoderCount = 0;
+int motorLPrevNetEncoderCount = 0;
+volatile int motorLNetEncoderCount = 0;       //Net encoder's ticks count of left motor
+int motorRAccmEncoderCount = 0;      //Accumulated encoder's ticks count of right motor
+int motorRPrevAccmEncoderCount = 0;
+int motorRPrevNetEncoderCount = 0;
+volatile int  motorRNetEncoderCount = 0;       //Net encoder's ticks count of right motor
 
 double  motorLPWM = 0;                   //PWM (0 - 255) of left motor
 double  motorRPWM = 0;                   //PWM (0 - 255) of right motor
@@ -76,7 +86,8 @@ volatile boolean start = false;
 double FORWARD_PWM_L = 165.5;
 //double FORWARD_PWM_R = 161.8; // actual lab
 double FORWARD_PWM_R = 159.6; // student lounge
-int FORWARD_DIST = 482*2;
+double FORWARD_DIST_SHORT_FACTOR = 1.073;
+double FORWARD_DIST = 2249 / (6*PI);
 
 double CCW_PWM_L = 180;
 double CCW_PWM_R = 180;
@@ -156,28 +167,7 @@ void loop(){
   if(!start){
     return;
   }
-  
-  // if(sense && !motorLRun && !motorRRun){
 
-  //   readAllSensors();
-      
-  //   for(int i=0; i<5; i++){
-  //     Serial.print(sensorReadings[i]);
-  //     Serial.print(" ");
-  //   }
-  //   Serial.println();
-
-  //   sense = false;
-  // }else{
-  //   if(mode == MODE_EXPLORE){
-  //     configMove();
-    
-  //     robotMove();
-  //   }else if(mode == MODE_CALIBRATE){
-  //     calibrateFront();
-  //   }
-  // }
-  
   if(!hasSent && !motorLRun && !motorRRun){
     Serial.println("p*");
     hasSent = true;
@@ -185,21 +175,31 @@ void loop(){
 }
 
 void readUltrasonic(){                                     // a low pull on pin COMP/TRIG  triggering a sensor reading
-  ultrasonicSetup();  
-  md.setSpeeds(0, 0);
-  delay(50);
-  digitalWrite(ULTRA_RTRIG, LOW); 
-  digitalWrite(ULTRA_RTRIG, HIGH);                      // reading Pin PWM will output pulses   
-  unsigned long distanceMeasured = pulseIn(ULTRA_RPWM, LOW);
+  // ultrasonicSetup();  
+  // delay(50);
+  // digitalWrite(ULTRA_RTRIG, LOW); 
+  // digitalWrite(ULTRA_RTRIG, HIGH);                      // reading Pin PWM will output pulses   
+  // unsigned long distanceMeasured = pulseIn(ULTRA_RPWM, LOW);
 
-  if(distanceMeasured==50000){                     // the reading is invalid.
-    ultrasonicDistance = -1;
-  }
-  else{
-    ultrasonicDistance = distanceMeasured/50;                  // every 50us low level stands for 1cm
-  }
+  // if(distanceMeasured==50000){                     // the reading is invalid.
+  //   ultrasonicDistance = -1;
+  // }
+  // else{
+  //   ultrasonicDistance = distanceMeasured/50;                  // every 50us low level stands for 1cm
+  // }
+  // md.init();
+  md.setSpeeds(0, 0);
+  delay(20);
+  unsigned int uS = sonar.ping(); // Send ping, get ping time in microseconds (uS).
+  ultrasonicDistance = uS / US_ROUNDTRIP_CM;
+#if DEBUG
+  Serial.print("Ping: ");
+  Serial.print(uS /(double) US_ROUNDTRIP_CM); // Convert ping time to distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
+#endif
   md.init();
 }
+
 
 void readAllSensors() {
   int l = mode == MODE_CALIBRATE ? 2 : 2;
@@ -207,7 +207,7 @@ void readAllSensors() {
 //    l = 1;
   do{
     readUltrasonic();
-  }while(ultrasonicDistance == 0 || ultrasonicDistance > 500);
+  }while(ultrasonicDistance == 0 || ultrasonicDistance == MAX_DISTANCE);
   for(int i=0; i<l; i++) {
     sensorReadings[0] = frontLeft.getDistanceCm();
     sensorReadings[1] = frontMiddle.getDistanceCm();
@@ -241,7 +241,7 @@ void readSensorsTillStable(int i, int j){
     sensorReadings[4] = rightTop.getDistanceMedianStable() - RIGHT_TOP_OFFSET;
     sensorReadings[5] = rightMiddle.getDistanceMedianStable();
     count++;
-    if(count > 30)
+    if(count > 10)
       break;
   }while(abs(sensorReadings[i] - prevI) >= 0.02 || abs(sensorReadings[j] - prevJ) >= 0.02);
 }
@@ -289,13 +289,56 @@ void serialEvent() {  //Read inputs sent from Raspberry Pi via USB serial commun
         sense = false;
     }
     
-    if(data1 == 'x'){
-      if(data2 == '1'){
-        rotate(1, CW);
-      }else{
-        rotate(1, CCW);
+    #if DEBUG
+      if(data1 == 'x'){
+        if(data2 == '1'){
+          rotate(1, CW);
+        }else{
+          rotate(1, CCW);
+        }
       }
-    }
+
+     if(data1 == '5'){
+        if(data2 == '1'){
+          CW_RADIUS += 0.01;
+        }else if(data2 == '2'){
+          CW_RADIUS -= 0.01;
+        }else if(data2 == '3'){
+          CW_RADIUS += 0.1;
+        }else if(data2 == '4'){
+          CW_RADIUS -= 0.1;
+        }
+        return;
+      }else if(data1 == '6'){
+        if(data2 == '1'){
+          CCW_RADIUS += 0.01;
+        }else if(data2 == '2'){
+          CCW_RADIUS -= 0.01;
+        }else if(data2 == '3'){
+          CCW_RADIUS += 0.1;
+        }else if(data2 == '4'){
+          CCW_RADIUS -= 0.1;
+        }
+        return;
+      }else if(data1 == '7'){
+        Serial.print("pRadius: ");
+        Serial.print(CW_RADIUS);
+        Serial.print(" ");
+        Serial.println(CCW_RADIUS);
+        return;
+      }else if(data1 == '8'){
+        if(data2 == '1'){
+          FORWARD_DIST_SHORT_FACTOR += 0.001;
+        }else if(data2 == '2'){
+          FORWARD_DIST_SHORT_FACTOR -= 0.001;
+        }
+        return;
+      }else if(data1 == '9'){
+        Serial.print("pForward factor: ");
+        Serial.println(FORWARD_DIST_SHORT_FACTOR);
+        return;
+      }
+    #endif
     
     if(sense && dir == B00){
       replyWithSensorData();
@@ -380,10 +423,11 @@ void parseMove(){
 }
 
 void robotStop(){
-  //if(dir == FORWARD){
-  md.setBrakes(400, 400);
-  //
-  
+  if(dir == FORWARD){
+    md.setBrakes(300, 300);
+  else
+    md.setBrakes(400, 400);
+
 //  Serial.print("Stop: L ");
 //  Serial.print(motorLNetEncoderCount);
 //  Serial.print(" R ");
@@ -391,6 +435,9 @@ void robotStop(){
   
   motorRNetEncoderCount = 0;
   motorLNetEncoderCount = 0;
+  motorLPrevNetEncoderCount = 0;
+  motorRPrevNetEncoderCount = 0;
+  
   motorLRun = false;
   motorRRun = false;
 }
@@ -516,10 +563,40 @@ void resetMove(){
   motorRRun = true;
 }
 
-void move(float leftPWM, float rightPWM, int setPoint){
+void move(float finalLPWM, float finalRPWM, int setPoint){
+
+  double MIN_SPEED = 100;
+  double MIN_DISTANCE = 2249 / (6*PI) / 1.073;
+
+  float k1 = finalLPWM / min(MIN_DISTANCE, (1.0 * setPoint));
+  float k2 = finalRPWM / min(MIN_DISTANCE, (1.0 * setPoint));
+
+  targetLPWM = MIN_SPEED;
+  targetRPWM = MIN_SPEED;
+
+  double motorLDiff = 0, motorRDiff = 0;
+
   while(true){
+    motorLDiff = abs(motorLNetEncoderCount - motorLPrevNetEncoderCount);
+    motorRDiff = abs(motorRNetEncoderCount - motorRPrevNetEncoderCount);
+
+    double LIncrement = motorLDiff * k1;
+    double RIncrement = motorRDiff * k2;
+    double avg = (LIncrement + RIncrement)/2;
+
+    motorLPrevNetEncoderCount = motorLNetEncoderCount;
+    motorRPrevNetEncoderCount = motorRNetEncoderCount;
+
+    if(avg + targetLPWM < finalLPWM){
+      targetLPWM += avg;
+    }
+
+    if(avg + targetRPWM < finalRPWM){
+      targetRPWM += avg;
+    }
+
     if(motorLRun && abs(motorLNetEncoderCount) < setPoint){
-      md.setM2Speed(leftPWM/255.0*400.0);
+      md.setM2Speed(LMag*targetLPWM/255.0*400.0);
     }else {
 //      Serial.print("L ");
 //      Serial.println(motorLNetEncoderCount);
@@ -528,12 +605,24 @@ void move(float leftPWM, float rightPWM, int setPoint){
     }
     
     if(motorRRun && abs(motorRNetEncoderCount) < setPoint){
-      md.setM1Speed(rightPWM/255.0*400.0);
+      md.setM1Speed(RMag*targetRPWM/255.0*400.0);
     }else {
 //      Serial.print("R ");
 //      Serial.println(motorRNetEncoderCount);
       robotStop();
       break;
+    }
+
+    if(motorLNetEncoderCount * k1 > MIN_SPEED){
+      targetLPWM = constrain(targetLPWM, 0, 255);
+    }else{
+      targetLPWM = constrain(targetLPWM, MIN_SPEED, 255);
+    }
+
+    if(motorRNetEncoderCount * k2 > MIN_SPEED){
+      targetRPWM = constrain(targetRPWM, 0, 255);
+    }else{
+      targetRPWM = constrain(targetRPWM, MIN_SPEED, 255);
     }
   }
 }
@@ -550,13 +639,13 @@ void straight(float dist){
     LMag = 1;
     RMag = -1;
   }
-  motorLPWM = LMag * FORWARD_PWM_L;
-  motorRPWM = RMag * FORWARD_PWM_R;
+  // motorLPWM = LMag * FORWARD_PWM_L;
+  // motorRPWM = RMag * FORWARD_PWM_R;
 
-  motorDistChkPt = dist * 2249 / (6*PI);
+  motorDistChkPt = dist * FORWARD_DIST;
   
   if(dist == 10){
-    motorDistChkPt = dist * 2249 / (6*PI) / 1.073; // actual lab
+    motorDistChkPt = dist * FORWARD_DIST / FORWARD_DIST_SHORT_FACTOR; // actual lab
 //    motorDistChkPt = dist * 2249 / (6*PI) / 1.055; // student lounge
   }
   
@@ -569,13 +658,15 @@ void straight(float dist){
 
 void rotate(float angle, byte dir){
   resetMove();
-  if(dir == CW){
-//    Serial.println("CW");
-    motorLPWM = -CW_PWM_L;
-    motorRPWM = -CW_PWM_R;
+if(dir == CW){
+    LMag = -1;
+    RMag = -1;
+    motorLPWM = CW_PWM_L;
+    motorRPWM = CW_PWM_R;
     motorDistChkPt = CW_DIST*angle/90.0;
   }else{
-//    Serial.println("CCW");
+    LMag = 1;
+    RMag = 1;
     motorLPWM = CCW_PWM_L;
     motorRPWM = CCW_PWM_R;
     motorDistChkPt = CCW_DIST*angle/90.0;
@@ -586,6 +677,8 @@ void rotate(float angle, byte dir){
 
 void back(){
   resetMove();
+  LMag = 1;
+  RMag = 1;
   motorLPWM = BACK_PWM_L;
   motorRPWM = BACK_PWM_R;
   motorDistChkPt = BACK_DIST;
