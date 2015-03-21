@@ -11,6 +11,8 @@
 
 #define __cxa_pure_virtual()
 
+#include "FastRunningMedian.h"
+
 /// <summary>
 /// Abstract class AnalogDistanceSensor
 /// </summary>
@@ -22,7 +24,7 @@ class AnalogDistanceSensor {
 		float getDistanceVolt();
 		
 		void setARefVoltage(int _refV);
-		virtual int getDistanceCentimeter() = 0; 	// Is implemented in derived classes
+		virtual float getDistanceCentimeter() = 0; 	// Is implemented in derived classes
 		
 	private:
 		int _mapGP2Y0A21YK_V(int value);

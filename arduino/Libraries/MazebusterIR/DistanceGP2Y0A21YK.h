@@ -10,22 +10,36 @@
 #endif
 
 #include <AnalogDistanceSensor.h>
+#include <ModeFilter.h>
+
 // #include "FastRunningMedian.h"
 
 class DistanceGP2Y0A21YK : public AnalogDistanceSensor {
 	public:
 		DistanceGP2Y0A21YK(int label);
-		int getDistance();
-		int getDistanceMedian();
+		float getDistance();
+		float getDistance2();
+		float getDistanceMedian();
+		float getDistanceMedian2();
+		float getDistanceMedianStable();
+		float getDistanceCm();
+		static float mapf(float v, float s1, float e1, float s2, float e2){
+			if(fabs(e1-s1) < 1E-7)
+				return e1;
+			else
+				return (v-s1)/(e1-s1)*(e2-s2) + s2;
+		}
 	private:
 		int _label;
- 		FastRunningMedian<int, 32, 0> median;
-    	float filterVal = 0.8;       // this determines smoothness  - .0001 is max  1 is off (no smoothing)
+    	float filterVal = 0.5;       // this determines smoothness  - .0001 is max  1 is off (no smoothing)
+    	float filterVal2 = 0.9;       // this determines smoothness  - .0001 is max  1 is off (no smoothing)
 	    float smoothedVal = 0;     // this holds the last loop value just use a unique variable for every different sensor that needs smoothing
+	    float smoothedVal2 = 0;     // this holds the last loop value just use a unique variable for every different sensor that needs smoothing
+	    float smoothedValStable = 0;
 
-		int getDistanceCentimeter();
-		int getDistanceCentimeter2();
-		int smooth(int data, float filterVal, float smoothedVal);
+		float getDistanceCentimeter();
+		float getDistanceCentimeter2();
+		float smooth(float data, float filterVal, float smoothedVal);
 };
 
 #endif

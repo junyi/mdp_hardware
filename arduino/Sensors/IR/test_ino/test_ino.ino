@@ -2,19 +2,21 @@
 // #include <math.h>
 // #include <SharpIR.h>
 //#include <DistanceGP2Y0A02YK.h>
-//#include <DistanceGP2Y0A21YK.h>
+#include <DistanceGP2Y0A21YK.h>
 //#include <MazebusterIR.h>
 //#include <SharpIR.h>
-#define pinIR1 A0
+#define pinIR1 A4
 //SharpIR sensorLR(pinIR1, 25, 93, 20150);
 //DistanceGP2Y0A02YK sensorLR;
 //MazebusterIR sensorLR(pinIR1, 11, 25, 93);
 float smoothedVal = 0;
+DistanceGP2Y0A21YK sensor(4);
 
 void setup()
 {
   Serial.begin (9600);
   pinMode(pinIR1, INPUT);
+  sensor.begin(pinIR1);
 //  sensorLR.begin(pinIR1);
 }
 
@@ -37,8 +39,8 @@ void loop(){
 //  smoothedVal = smooth(dist, 0.85, smoothedVal);
 //  float dist = pow(data/4120.72436828283,1/-0.93133245362108);
 
-  Serial.println(data);
-  // Serial.println(x);
+  Serial.println(sensor.getDistanceCm());
+//    Serial.println(data);
 }
 
 float smooth(float data, float filterVal, float smoothedVal) {

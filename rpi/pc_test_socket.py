@@ -29,9 +29,9 @@ class Test(threading.Thread):
 			# if (count == 1):
 				# break
 			try:
-				d  = None
+				d  = 'h'
 				if msg[1] == 'r':
-					d = msg[0] + chr(0b00000110) + chr(0b00000001)
+					d = msg[0] + chr(0b00000110) + chr(0b00000000)
 				elif msg[1] == 'l':
 					d = msg[0] + chr(0b00000101) + chr(0b00000001)
 				elif msg[1] == 's':
@@ -45,7 +45,7 @@ class Test(threading.Thread):
 				elif msg[1] == 'd':
 					d = msg[0] + chr(0b01000111) + chr(64 + int(msg[2:]))	
 
-				if d is not None:
+				if d != 'h':
 					self.client_socket.send(d)
 				else:
 					self.client_socket.send(msg)
