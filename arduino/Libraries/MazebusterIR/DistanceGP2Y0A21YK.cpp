@@ -29,26 +29,34 @@ const byte cmUpperBoundaryL  =  70;
 // {432, 365, 296, 252, 229, 208, 178, 165, 149, 131, 125, 115, 101, 96, 91, 89}
 // };
 
+// static int adcTable[][ARRAY_SIZE] =	{
+// 	{631, 627, 391, 284, 224, 184, 156, 128},
+// 	{631, 577, 381, 285, 231, 192, 168, 148},
+// 	{643, 601, 384, 290, 239, 211, 191, 178},
+// 	{641, 641, 445, 315, 244, 196, 164, 132},
+// 	{641, 641, 439, 314, 240, 192, 160, 146}
+// };
+
 static int adcTable[][ARRAY_SIZE] =	{
-	{631, 627, 391, 284, 224, 184, 156, 128},
-	{631, 577, 381, 285, 231, 192, 168, 148},
-	{643, 601, 384, 290, 239, 211, 191, 178},
-	{641, 641, 445, 315, 244, 196, 164, 132},
-	{641, 641, 439, 314, 240, 192, 160, 146}
+	{640, 635, 414, 296, 237, 192, 161, 142},
+	{640, 630, 423, 309, 240, 205, 176, 152},
+	{640, 627, 407, 302, 246, 208, 192, 192},
+	{650, 644, 447, 320, 246, 197, 162, 139},
+	{650, 647, 453, 324, 252, 206, 175, 157},
 };
 
-static FastRunningMedian<5> median;
-static FastRunningMedian<20> medianStable;
-
+static FastRunningMedian<5> medianCm;
+static FastRunningMedian<1> median;
+static FastRunningMedian<50> medianStable;
 // {401, 234, 170, 131, 107,  85, 71, 57};
 
 // static byte distanceTable[ARRAY_SIZE] =	{10, 13, 16, 20, 23, 26, 30, 33, 36, 40, 43, 46, 50, 53, 56, 60};
 static float distanceTable[][ARRAY_SIZE] =	{
-	{-1.8, 0, 5, 10, 15, 20, 25, 30},
-	{-2.5, 0, 5, 10, 15, 20, 25, 30},
-	{-2.0, 0, 5, 10, 15, 20, 25, 30},
-	{0, 0, 5, 10, 15, 20, 25, 30},
-	{0, 0, 5, 10, 15, 20, 25, 30}
+	{-1, 0, 5, 10, 15, 20, 25, 30},
+	{-1, 0, 5, 10, 15, 20, 25, 30},
+	{-1, 0, 5, 10, 15, 20, 25, 30},
+	{-1, 0, 5, 10, 15, 20, 25, 30},
+	{-1, 0, 5, 10, 15, 20, 25, 30}
 };
 
 /// <summary>
@@ -61,14 +69,31 @@ DistanceGP2Y0A21YK::DistanceGP2Y0A21YK(int label) {
 ModeFilter modeFilter;
 
 float DistanceGP2Y0A21YK::getDistanceCm() {
+	// for(int j = 0; j < 5; j++){
+	// 	modeFilter = ModeFilter();
+
+	// 	for(int i = 0; i < MOD_FILTER_SIZE; i++){
+	// 		int raw = getDistanceRaw();
+	// 		modeFilter.insert(raw);
+	// 	}
+
+	// 	medianCm.addValue(modeFilter.mode());
+	// }
+
+	// int adcValue = medianCm.getMedian();
 	modeFilter = ModeFilter();
+
 	for(int i = 0; i < MOD_FILTER_SIZE; i++){
 		int raw = getDistanceRaw();
 		modeFilter.insert(raw);
 	}
 
 	int adcValue = modeFilter.mode();
-	
+	// Serial.print("Sensor: ");
+	// Serial.print(_label);
+	// Serial.print(" ");
+	// Serial.println(adcValue);
+
 	// if (adcValue < adcLowerBoundary[_label]) {	//Distance (in cm) is inversely related to ADC values
 	// 	return (cmUpperBoundary);
 	// }
@@ -95,10 +120,7 @@ float DistanceGP2Y0A21YK::getDistanceCm() {
 		for (byte x = 1; x < ARRAY_SIZE; x++) {
 			if (adcValue >= adcTable[_label][x]) {
 				float dist = DistanceGP2Y0A21YK::mapf(adcValue, adcTable[_label][x-1], adcTable[_label][x], distanceTable[_label][x-1], distanceTable[_label][x]);
-				if(_label == 1)
-					return dist + 1.3;
-				else
-					return dist;
+				return dist;
 			}
 		}
 		// return pow(adcValue/4416.52599835545, 1/-0.947547160316633);
@@ -121,10 +143,16 @@ float DistanceGP2Y0A21YK::getDistanceCm() {
 	// }
 }
 
-
-/// </summary>
-//Detect range from 10cm - 80cm
 float DistanceGP2Y0A21YK::getDistanceCentimeter2() {
+	// modeFilter = ModeFilter();
+
+	// for(int i = 0; i < MOD_FILTER_SIZE; i++){
+	// 	int raw = getDistanceRaw();
+	// 	modeFilter.insert(raw);
+	// }
+	
+	// int adcValue = modeFilter.mode();
+
 	int adcValue = getDistanceRaw();
 	
 	// if (adcValue < adcLowerBoundary[_label]) {	//Distance (in cm) is inversely related to ADC values
@@ -198,22 +226,26 @@ float DistanceGP2Y0A21YK::getDistance() {
 }
 
 float DistanceGP2Y0A21YK::getDistanceMedian2() {
-	for(int i = 0; i < 5; i++){
+	for(int i = 0; i < 20; i++){
 		median.addValue(getDistance2());
 	}
 
-    smoothedVal =  smooth(median.getMedian(), filterVal, smoothedVal);
+
+	smoothedVal =  smooth(median.getMedian(), filterVal, smoothedVal);
   
 	// return median.getMedian();
 	return smoothedVal;
 }
 
-float DistanceGP2Y0A21YK::getDistanceMedianStable() {
-	for(int i = 0; i < 20; i++){
+float DistanceGP2Y0A21YK::getDistanceMedianStable(bool clearSmooth) {
+	for(int i = 0; i < 50; i++){
 		medianStable.addValue(getDistance2());
 	}
 
-    smoothedValStable =  smooth(medianStable.getMedian(), 0.8, smoothedValStable);
+	// if (clearSmooth)
+	// 	smoothedValStable = medianStable.getMedian();
+	// else
+	smoothedValStable =  smooth(medianStable.getMedian(), 0.8, smoothedValStable);
   
 	// return median.getMedian();
 	return smoothedValStable;

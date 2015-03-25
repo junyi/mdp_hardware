@@ -39,6 +39,7 @@ class HashMap
     {
       cb_comparator = compare;
       currentIndex = 0;
+      clear();
     }
 
     /*
@@ -198,6 +199,13 @@ class HashMap
       return false;
     }
 
+    void clear(){
+      for(int i = 0; i < capacity; i++){
+        keys[i] = nil;
+        values[i] = 0;
+      }
+    }
+
     /*
     || @description
     || | Check if a key is contained within this HashMap
@@ -222,11 +230,6 @@ class HashMap
     void setNullValue(V nullv)
     {
       nil = nullv;
-    }
-
-    void clear()
-    {
-      currentIndex = 0;
     }
 
   protected:

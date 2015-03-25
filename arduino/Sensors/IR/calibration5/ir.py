@@ -50,15 +50,14 @@ while True:
 			while count < MOD_FILTER_SIZE:
 				try:
 					reading = ser.readline()
-					print reading
+					# print reading
 					lst = reading.split()
 					value = float(lst[0])
 					value2 = float(lst[1])
 					l.append(value)
 					l2.append(value2)
 					count += 1
-				except ValueError, e:
-					print e
+				except Exception:
 					pass
 			print l
 			c = Counter(l).most_common(1)

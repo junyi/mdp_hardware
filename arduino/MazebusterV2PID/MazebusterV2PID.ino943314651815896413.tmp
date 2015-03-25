@@ -112,13 +112,13 @@ double FORWARD_PWM_R = 159.6 * 1.2; // student lounge
 double FORWARD_DIST_SHORT_FACTOR = 1.13;
 double FORWARD_DIST = 2249 / (6 * PI);
 
-double CCW_RADIUS = 15.50;
+double CCW_RADIUS = 15.30;
 double CCW_PWM_L = 180 * 1.1;
 double CCW_PWM_R = 180 * 1.1;
 //int CCW_DIST = 16.15/4.0/6.0*2294;  // actual lab
 int CCW_DIST = CCW_RADIUS / 4.0 / 6.0 * 2294;
 // int CCW_DIST = 16.15/4.0/6.0*2294; // student lounge
-double CW_RADIUS = 15.60;
+double CW_RADIUS = 15.50;
 double CW_PWM_L = 180;
 double CW_PWM_R = 180;
 //int CW_DIST = 16.40/4.0/6.0*2294; // actual lab
@@ -126,7 +126,7 @@ int CW_DIST = CW_RADIUS / 4.0 / 6.0 * 2294;
 // int CW_DIST = 16.81/4.0/6.0*2294; // student lounge
 double BACK_PWM_L = 180 * 1.1;
 double BACK_PWM_R = 180 * 1.1;
-int BACK_DIST = 16.20 / 2.0 / 6.0 * 2294;
+int BACK_DIST = 16.55 / 2.0 / 6.0 * 2294;
 
 //float FRONT_CUTOFF = 8.5; // actual lab
 float FRONT_CUTOFF = 8; // student lounge
@@ -251,11 +251,11 @@ void readAllSensors()
         sensorReadings[0] = frontLeft.getDistanceCm() - 2;
         sensorReadings[1] = frontMiddle.getDistanceCm();
         sensorReadings[2] = frontRight.getDistanceCm();
-        sensorReadings[3] = rightMiddle.getDistanceCm();
+        sensorReadings[3] = ultrasonicDistance;
         // Serial.print("readAllSensors ");
         // Serial.println(i);
         sensorReadings[4] = rightTop.getDistanceCm();
-        sensorReadings[5] = ultrasonicDistance;
+        sensorReadings[5] = rightMiddle.getDistanceCm();
 
 
         //    sensorReadings[0] = frontLeft.getDistanceMedian2();

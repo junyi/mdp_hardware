@@ -21,7 +21,7 @@ class DistanceGP2Y0A21YK : public AnalogDistanceSensor {
 		float getDistance2();
 		float getDistanceMedian();
 		float getDistanceMedian2();
-		float getDistanceMedianStable();
+		float getDistanceMedianStable(bool clearSmooth = true);
 		float getDistanceCm();
 		static float mapf(float v, float s1, float e1, float s2, float e2){
 			if(fabs(e1-s1) < 1E-7)
