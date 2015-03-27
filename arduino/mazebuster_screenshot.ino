@@ -4,52 +4,38 @@
 #include <DistanceGP2Y0A21YK.h>
 #include <digitalWriteFast.h>
 #include <NewPing.h>
-
 #define STUDENT_LOUNGE
 #define DEBUG false
 #define MOTOR_L_ENCODER_A 3
 #define MOTOR_L_ENCODER_B 5
-
 #define MOTOR_R_ENCODER_A 11
 #define MOTOR_R_ENCODER_B 13
-
 #define SENSOR_IR_FRONT_MIDDLE A0
 #define SENSOR_IR_FRONT_LEFT   A1
 #define SENSOR_IR_FRONT_RIGHT  A2
 #define SENSOR_IR_RIGHT_TOP    A3
 #define SENSOR_IR_RIGHT_MIDDLE A4
 #define SENSOR_IR_LEFT_MIDDLE  A5
-
 #define ULTRA_RPWM  6                                        // PWM Output 0-25000us,every 50us represent 1cm
 #define ULTRA_RTRIG 7                                       // PWM trigger pin
 #define MAX_DISTANCE 300 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
-
 uint8_t CMD_DISTANCE[] = {0x44, 0x22, 0xbb, 0x01};     // distance measure command
-
 #define FORWARD B11
 #define CW      B10
 #define CCW     B01
 #define BACK    B00
-
 #define FRONT 0
-//#define LEFT  2
 #define RIGHT 4
-
 #define DELAY_PERIOD 200
-
 DualVNH5019MotorShield md;
-
 NewPing sonar(ULTRA_RTRIG, ULTRA_RPWM, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
-
 DistanceGP2Y0A21YK frontMiddle(0);
 DistanceGP2Y0A21YK frontLeft(1);
 DistanceGP2Y0A21YK frontRight(2);
 DistanceGP2Y0A21YK rightTop(3);
 DistanceGP2Y0A21YK rightMiddle(4);
 DistanceGP2Y0A21YK leftMiddle(5);
-
 volatile int motorLOldA = 0, motorROldA = 0, motorLNewB = 0, motorRNewB = 0;
-
 int motorLAccmEncoderCount = 0;      //Accumulated encoder's ticks count of left motor
 int motorLPrevAccmEncoderCount = 0;
 int motorLPrevNetEncoderCount = 0;
@@ -59,7 +45,6 @@ int motorRPrevAccmEncoderCount = 0;
 int motorRPrevNetEncoderCount = 0;
 volatile int  motorRNetEncoderCount = 0;       //Net encoder's ticks count of right motor
 double motorEncoderDiff = 0;
-
 double  motorLPWM = 0;                   //PWM (0 - 255) of left motor
 double  motorRPWM = 0;                   //PWM (0 - 255) of right motor
 double  currentLPWM = 0;
@@ -77,26 +62,17 @@ double  outputLPWM = 0;
 double  outputRPWM = 0;
 double  motorLPWMdiff = 0;
 double  motorRPWMdiff = 0;
-
 int numGrids = 1;
-
 unsigned long prevTime = 0;              //Previous timestamp checked for motors' speeds
 unsigned long currTime = 0;              //Current timestamp
-
-// PID     motorLPID(&motorLSpeed, &motorLPWM, &targetLSpeed, 150, 0, 0, DIRECT);  //PID that controls the PWM of left motor
-// PID     motorRPID(&motorRSpeed, &motorRPWM, &targetRSpeed, 150, 0, 0, DIRECT);  //PID that controls the PWM of right motor
-// PID     motorDiffPID(&motorEncoderDiff, &motorDiffOutput, &motorTargetDiff, 1.7, 0.3, 0.7, DIRECT);  //PID that controls the PWM of right motor
-
 const byte MODE_STOP = B00;
 const byte MODE_EXPLORE = B01;
 const byte MODE_SHORTESTPATH = B10;
 const byte MODE_CALIBRATE = B11;
-
 /************** Decoded Command **************/
 byte    mode = MODE_STOP;          //Map exploration mode = 0, Shortest path travelling mode = 1
 byte    dir = FORWARD;          //Forward = 11, Left = 01, Right = 10, Backward = 00
 /******************** END ********************/
-
 /******************* Flags *******************/
 boolean sense = false;       //Allow sensors to sense and transmit data
 boolean motorLRun = false;  //Allow left motor to run (based on the command given)
@@ -105,45 +81,26 @@ boolean hasSent = false;
 volatile boolean hasCalibrated = false;
 volatile boolean start = false;
 /******************** END ********************/
-
 double FORWARD_PWM_L = 165.5 * 1.2;
-//double FORWARD_PWM_R = 161.8; // actual lab
 double FORWARD_PWM_R = 161 * 1.2; // student lounge
 double FORWARD_DIST_SHORT_FACTOR = 1.15;
 double FORWARD_DIST = 2249 / (6 * PI);
-
 double CCW_RADIUS = 15.30;
 double CCW_PWM_L = 180 * 1.1;
 double CCW_PWM_R = 180 * 1.1;
-//int CCW_DIST = 16.15/4.0/6.0*2294;  // actual lab
 int CCW_DIST = CCW_RADIUS / 4.0 / 6.0 * 2294;
-// int CCW_DIST = 16.15/4.0/6.0*2294; // student lounge
 double CW_RADIUS = 15.50;
 double CW_PWM_L = 180;
 double CW_PWM_R = 180;
-//int CW_DIST = 16.40/4.0/6.0*2294; // actual lab
 int CW_DIST = CW_RADIUS / 4.0 / 6.0 * 2294;
-// int CW_DIST = 16.81/4.0/6.0*2294; // student lounge
 double BACK_PWM_L = 180 * 1.1;
 double BACK_PWM_R = 180 * 1.1;
 int BACK_DIST = 16.20 / 2.0 / 6.0 * 2294;
-
-//float FRONT_CUTOFF = 8.5; // actual lab
 float FRONT_CUTOFF = 8; // student lounge
 float RIGHT_TOP_OFFSET = 2.5;
 float LEFT_MIDDLE_OFFSET = 7.5;
-
 float CALIBRATION_THRESHOLD = 20;
-
-//String inputString = "";
-
-//boolean stringComplete = false;  // whether the string is complete
-//int lspeed = 0;
-//int rspeed = 0;
 float sensorReadings[6] = {};
-//float previousLeftReading = 0;
-//float previousRightReading = 0;
-
 int LMag = 1;
 int RMag = -1;
 
@@ -151,9 +108,7 @@ void ultrasonicSetup()
 {
     pinMode(ULTRA_RTRIG, OUTPUT);                           // A low pull on pin COMP/TRIG
     digitalWrite(ULTRA_RTRIG, HIGH);                        // Set to HIGH
-
     pinMode(ULTRA_RPWM, INPUT);                             // Sending Enable PWM mode command
-
     for (int i = 0; i < 4; i++)
     {
         Serial.write(CMD_DISTANCE[i]);
@@ -164,37 +119,26 @@ void ultrasonicSetup()
 void setup()
 {
     Serial.begin(115200);
-
-    // inputString.reserve(20);
-    //  ultrasonicSetup();
-
     pinMode(MOTOR_L_ENCODER_A, INPUT);
     pinMode(MOTOR_L_ENCODER_B, INPUT);
     pinMode(MOTOR_R_ENCODER_A, INPUT);
     pinMode(MOTOR_R_ENCODER_B, INPUT);
-
     frontLeft.begin(SENSOR_IR_FRONT_LEFT);
     frontRight.begin(SENSOR_IR_FRONT_RIGHT);
     frontMiddle.begin(SENSOR_IR_FRONT_MIDDLE);
     leftMiddle.begin(SENSOR_IR_LEFT_MIDDLE);
     rightMiddle.begin(SENSOR_IR_RIGHT_MIDDLE);
     rightTop.begin(SENSOR_IR_RIGHT_TOP);
-
-
-
     md.init();
-
     PCintPort::attachInterrupt(MOTOR_L_ENCODER_A, &motorLISRA, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
     PCintPort::attachInterrupt(MOTOR_L_ENCODER_B, &motorLISRB, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
     PCintPort::attachInterrupt(MOTOR_R_ENCODER_A, &motorRISRA, CHANGE);  //Attach right motor encoder interrupt pin to the ISR
     PCintPort::attachInterrupt(MOTOR_R_ENCODER_B, &motorRISRB, CHANGE);  //Attach left motor encoder interrupt pin to the ISR
-
 }
 
 unsigned long timer = 0;
 unsigned long lastTime = 0;
 unsigned int ultrasonicDistance = 0;
-
 void loop()
 {
 }
@@ -206,27 +150,11 @@ void sendFeedback()
 
 void readUltrasonic()                                      // a low pull on pin COMP/TRIG  triggering a sensor reading
 {
-    // ultrasonicSetup();
-    // delay(50);
-    // digitalWrite(ULTRA_RTRIG, LOW);
-    // digitalWrite(ULTRA_RTRIG, HIGH);                      // reading Pin PWM will output pulses
-    // unsigned long distanceMeasured = pulseIn(ULTRA_RPWM, LOW);
-
-    // if(distanceMeasured==50000){                     // the reading is invalid.
-    //   ultrasonicDistance = -1;
-    // }
-    // else{
-    //   ultrasonicDistance = distanceMeasured/50;                  // every 50us low level stands for 1cm
-    // }
-    // md.init();
     md.setSpeeds(0, 0);
     delay(20);
     unsigned int uS = sonar.ping(); // Send ping, get ping time in microseconds (uS).
     ultrasonicDistance = uS / US_ROUNDTRIP_CM;
 #if DEBUG
-    // Serial.print("Ping: ");
-    // Serial.print(uS / (double) US_ROUNDTRIP_CM); // Convert ping time to distance in cm and print result (0 = outside set distance range)
-    // Serial.println("cm");
 #endif
     md.init();
 }
@@ -234,13 +162,6 @@ void readUltrasonic()                                      // a low pull on pin 
 void readAllSensors()
 {
     int l = mode == MODE_CALIBRATE ? 2 : 2;
-    //  if(mode == MODE_CALIBRATE && dir == RIGHT)
-    //    l = 1;
-//#if DEBUG
-    // Serial.print("p");
-    // Serial.println(millis());
-//#endif
-
     do
     {
         readUltrasonic();
@@ -252,25 +173,13 @@ void readAllSensors()
         sensorReadings[1] = frontMiddle.getDistanceCm();
         sensorReadings[2] = frontRight.getDistanceCm();
         sensorReadings[3] = rightMiddle.getDistanceCm();
-        // Serial.print("readAllSensors ");
-        // Serial.println(i);
         sensorReadings[4] = rightTop.getDistanceCm();
         sensorReadings[5] = ultrasonicDistance;
-
-
-        //    sensorReadings[0] = frontLeft.getDistanceMedian2();
-        //    sensorReadings[1] = frontMiddle.getDistanceMedian2();
-        //    sensorReadings[2] = frontRight.getDistanceMedian2();
-        //    sensorReadings[3] = leftMiddle.getDistanceMedian2() - LEFT_MIDDLE_OFFSET;
-        //    sensorReadings[4] = rightTop.getDistanceMedian2() - RIGHT_TOP_OFFSET;
-        //    sensorReadings[5] = rightMiddle.getDistanceMedian2();
     }
-
 #if DEBUG
-    // Serial.print("p");
-    // Serial.println(millis());
 #endif
 }
+
 
 void readSensorsTillStable(int i, int j)
 {
@@ -278,27 +187,19 @@ void readSensorsTillStable(int i, int j)
     frontRight.resetSmoothing();
     double prevI, prevJ;
     int count = 0;
-    //  do{
-    //    readUltrasonic();
-    //  }while(ultrasonicDistance == 0 || ultrasonicDistance > 500);
     do
     {
         prevI = sensorReadings[i];
         prevJ = sensorReadings[j];
         sensorReadings[0] = frontLeft.getDistance2();
-        // sensorReadings[1] = frontMiddle.getDistanceMedianStable();
         sensorReadings[2] = frontRight.getDistance2();
-        //    sensorReadings[3] = ultrasonicDistance;
-        // sensorReadings[4] = rightTop.getDistanceMedianStable() - RIGHT_TOP_OFFSET;
-        // sensorReadings[5] = rightMiddle.getDistanceMedianStable();
-        // Serial.print("Sensor count: ");
-        // Serial.println(count);
         count++;
         if (count > 10)
             break;
     }
     while (abs(sensorReadings[i] - prevI) >= 0.02 || abs(sensorReadings[j] - prevJ) >= 0.02);
 }
+
 
 void readAllSensors2()
 {
@@ -315,50 +216,34 @@ void readAllSensors2()
 }
 
 float kp = 1.7, ki = 0.3, kd = 0.7;
-
 void serialEvent()    //Read inputs sent from Raspberry Pi via USB serial communication
 {
     byte command;
-    //  // Serial.flush();
-
-    //When there's a data in the receiving buffer, and both the motors have completed their moves
     if (Serial.available() >= 2 && !motorLRun && !motorRRun)
     {
         int data1 = Serial.read();          //First byte of data is moving command
         int data2 = Serial.read();          //Second byte of data is distance
-
-        // Serial.print("serial received: ");
-        // Serial.print((char) data1);
-        // Serial.println((char) data2);
-        //Initialization for robot
         if (((char) data1) == '*')
         {
             sendFeedback();
             return;
         }
-
         if (((char) data1) == '@' && ((char) data2) == '@')
         {
             replyWithSensorData();
             return;
         }
-
-        // // Serial.flush();
-
         if (data1 != -1)                    //If received a command, decode the command
         {
             command = byte(data1);
             mode = (command & 0x0C) >> 2;         //Bit 0-1 represents start or stop
             dir = (command & 0x03);    //Bits 2-3 represent direction to move
-
         }
-
         if (data2 != -1 && dir == FORWARD)
         {
             command = byte(data2);
             numGrids = int(command & 0x1F);
         }
-
         if (mode == MODE_EXPLORE)
         {
             parseMove();
@@ -377,8 +262,11 @@ void serialEvent()    //Read inputs sent from Raspberry Pi via USB serial commun
                 delay(300);
             }
             sendFeedback();
-        }else if (mode == MODE_SHORTESTPATH){
-            if (dir == FORWARD){
+        }
+        else if (mode == MODE_SHORTESTPATH)
+        {
+            if (dir == FORWARD)
+            {
                 calibrateDistance(100);
             }
             sendFeedback();
@@ -390,7 +278,6 @@ void replyWithSensorData()
 {
     if (!motorLRun && !motorRRun && mode != MODE_CALIBRATE)
     {
-        // Serial.println("replyWithSensorData");
         readAllSensors();
         Serial.print("p");
         for (int i = 0; i < 6; i++)
@@ -399,7 +286,6 @@ void replyWithSensorData()
             Serial.print(" ");
         }
         Serial.println();
-
     }
 }
 
@@ -407,10 +293,8 @@ void parseMove()
 {
     if (!motorLRun && !motorRRun)
     {
-        // Serial.println("rseMove");
         resetMove();
         sense = true;
-
         switch (dir)
         {
         case FORWARD:
@@ -426,7 +310,6 @@ void parseMove()
             back();
         }
     }
-
     delay(DELAY_PERIOD);
     sendFeedback();
 }
@@ -434,12 +317,10 @@ void parseMove()
 void robotStop()
 {
     md.setBrakes(400, 400);
-
     motorLAccmEncoderCount = 0;
     motorRAccmEncoderCount = 0;
     motorLPrevAccmEncoderCount = 0;
     motorRPrevAccmEncoderCount = 0;
-
     motorRNetEncoderCount = 0;
     motorLNetEncoderCount = 0;
     motorLRun = false;
@@ -469,20 +350,17 @@ bool emergencyStopIfNeeded()
     float FL = frontLeft.getDistanceCm();
     float FM = frontMiddle.getDistanceCm();
     float FR = frontRight.getDistanceCm();
-
     if (min(min(FL, FM), FR) < 0.2)
     {
         robotStop();
         return true;
     }
-
     return false;
 }
 
 void calibrateRotation(int side, bool readAll)
 {
     float L, R;
-
     if (side == FRONT)
     {
         if (readAll)
@@ -501,14 +379,8 @@ void calibrateRotation(int side, bool readAll)
         L = sensorReadings[RIGHT];
         R = sensorReadings[RIGHT + 1];
     }
-
     if ((L + R) / 2 > CALIBRATION_THRESHOLD)
         return;
-
-    //  // Serial.print(sensorReadings[RIGHT]);
-    //  // Serial.print(" ");
-    //  // Serial.println(sensorReadings[RIGHT + 1]);
-
     float separation = 14.6;
     switch (side)
     {
@@ -518,23 +390,16 @@ void calibrateRotation(int side, bool readAll)
     case RIGHT:
         separation = 8.3;
     }
-
-    //  // Serial.print(L);
-    //  // Serial.print(" ");
-    //  // Serial.println(R);
-    //  // Serial.print(" ");
     //
     float tolerance = 0;
     float diff = side == FRONT ? L - R : L - R;
     if (abs(diff) > tolerance)
     {
         float angle = abs(atan2(diff, separation) * 180 / M_PI) * 0.995;
-//        float angle = abs(atan2(diff, separation) * 180 / M_PI) / 2 * 1.649;
         Serial.print("angle: ");
         Serial.println(angle);
         if (angle > 25)
             return;
-        //    // Serial.println(angle);
         if (diff > tolerance)
         {
             rotate(angle, CW, 400, 0.7);
@@ -555,7 +420,6 @@ void calibrateRotation2(int side, bool readAll)
 {
     float L = rightTop.getDistanceMedian() - RIGHT_TOP_OFFSET;
     float R = rightMiddle.getDistanceMedian();
-
     float separation = 14.6;
     switch (side)
     {
@@ -565,9 +429,7 @@ void calibrateRotation2(int side, bool readAll)
     case RIGHT:
         separation = 11;
     }
-
     float tolerance = 0;
-
     int count = 0;
     while (abs(L - R) > 0.1 && count < 100)
     {
@@ -587,68 +449,30 @@ void calibrateRotation2(int side, bool readAll)
     }
 }
 
-void calibrateDistance(float threshold){
-  readSensorsTillStable(FRONT, FRONT + 2);
-  float L = sensorReadings[FRONT];
-  float R = sensorReadings[FRONT + 2];
-  // float avg = (L+R)/2;
-  float avg = min(L, R);
-  if(avg > threshold)
-    return;
-  float tolerance = 0.1;
-  float cutoff = FRONT_CUTOFF;
-  if(abs(avg - cutoff) > tolerance){
-    straight(-0.8, 400, false, 0.5);
-    float frontDiff = avg - cutoff + 1;
-    if(frontDiff > tolerance){
-      straight(frontDiff, 400, false, 0.5);
-    }else if(frontDiff < -tolerance){
-      straight(frontDiff, 400, false, 0.5);
+void calibrateDistance(float threshold)
+{
+    readSensorsTillStable(FRONT, FRONT + 2);
+    float L = sensorReadings[FRONT];
+    float R = sensorReadings[FRONT + 2];
+    float avg = min(L, R);
+    if (avg > threshold)
+        return;
+    float tolerance = 0.1;
+    float cutoff = FRONT_CUTOFF;
+    if (abs(avg - cutoff) > tolerance)
+    {
+        straight(-0.8, 400, false, 0.5);
+        float frontDiff = avg - cutoff + 1;
+        if (frontDiff > tolerance)
+        {
+            straight(frontDiff, 400, false, 0.5);
+        }
+        else if (frontDiff < -tolerance)
+        {
+            straight(frontDiff, 400, false, 0.5);
+        }
     }
-  }
 }
-
-//void calibrateDistance(bool recursive)
-//{
-//    readSensorsTillStable(FRONT, FRONT + 2);
-//    float L = sensorReadings[FRONT];
-//    float R = sensorReadings[FRONT + 2];
-//    float avg = (L + R) / 2;
-//    if (avg > CALIBRATION_THRESHOLD)
-//        return;
-//    float cutoff = FRONT_CUTOFF;
-//    float tolerance = 0.1;
-//    if (abs(avg - cutoff) > tolerance)
-//    {
-//        float frontDiff = avg - cutoff;
-//        if (frontDiff > tolerance)
-//        {
-//            if (recursive)
-//            {
-//                straight(0.5, 400, false);
-//                readSensorsTillStable(FRONT, FRONT + 2);
-//                float newAvg = (sensorReadings[FRONT] + sensorReadings[FRONT + 2]) / 2;
-//                if (newAvg > avg)
-//                {
-//                    straight(-2, 400, false);
-//                    calibrateDistance(false);
-//                }
-//                else
-//                {
-//                    straight(frontDiff - 0.5, 400, false);
-//                }
-//            }
-//            else
-//            {
-//                straight(frontDiff, 400, false);
-//            }
-//        }
-//        else if (frontDiff < -tolerance)
-//        {
-//            straight(frontDiff, 400, false);
-//        }
-//    }
-//}
 
 double x = 0, y = 0;
 double CONVERT_LEFT = 6.0 * PI / 2249;
@@ -656,15 +480,9 @@ double CONVERT_RIGHT = 6.0 * PI / 2249;
 double motorLDiffCm = 0, motorRDiffCm = 0, motorAvgDiffCm = 0;
 double deltaAngleRad = 0, currentAngleRad = 0;
 double WHEELBASE_DIAMETER = 16.0;
-
-
 void resetMove()
 {
-//    x = 0;
-//    y = 0;
-//    currentAngleRad = 0;
     motorDiffOutput = 0;
-
     motorLAccmEncoderCount = 0;
     motorRAccmEncoderCount = 0;
     motorLPrevAccmEncoderCount = 0;
@@ -675,34 +493,17 @@ void resetMove()
     motorRPrevNetEncoderCount = 0;
     motorLRun = true;
     motorRRun = true;
-    // motorDiffPID.Reset();
 }
-
-// void computePID(){
-//   motorLPID.Compute();  //Compute left motor PWM based on the left motor speed w.r.t the target speed
-//   motorRPID.Compute();  //Compute right motor PWM based on the right motor speed w.r.t the target speed
-// }
 
 void moveWithoutPid(float finalLPWM, float finalRPWM, int setPoint, int brakeLevel = 400)
 {
     resetMove();
-
     targetLPWM = finalLPWM;
     targetRPWM = finalRPWM;
-
     int count = 0;
     int motorLDiff = 0, motorRDiff = 0;
-
     while (true)
     {
-        // Uncomment only if dynamic obstacle avoidance is needed
-        if (mode != MODE_CALIBRATE && dir == FORWARD && emergencyStopIfNeeded()){
-             Serial.println("pEmergency");
-             return;
-        }
-//        Serial.print("count: ");
-//        Serial.println(count);
-
         motorEncoderDiff = motorLAccmEncoderCount - motorRAccmEncoderCount;
         motorLDiff = motorLAccmEncoderCount - motorLPrevAccmEncoderCount;
         motorRDiff = motorRAccmEncoderCount - motorRPrevAccmEncoderCount;
@@ -710,181 +511,77 @@ void moveWithoutPid(float finalLPWM, float finalRPWM, int setPoint, int brakeLev
         motorLSpeed = motorLDiff / (currTime - prevTime);
         motorRSpeed = motorRDiff / (currTime - prevTime);
 
-//        motorLDiffCm = motorLDiff * CONVERT_LEFT;
-//        motorRDiffCm = motorRDiff * CONVERT_RIGHT;
-//        motorAvgDiffCm = (motorLDiffCm + motorRDiffCm) / 2;
-//
-//        deltaAngleRad = (motorRDiffCm - motorLDiffCm) / WHEELBASE_DIAMETER;
-//        if(dir == FORWARD){
-//          currentAngleRad += deltaAngleRad;
-//        }else if(dir == CW){
-//          currentAngleRad += PI/2;
-//        }else if(dir == CCW){
-//          currentAngleRad -= PI/2;
-//        }else if(dir == BACK){
-//          currentAngleRad += PI;
-//        }
-//
-//        if(dir == FORWARD){
-//          x += motorAvgDiffCm * cos(deltaAngleRad);
-//          y += motorAvgDiffCm * sin(deltaAngleRad);
-//        }
-        
         motorLPrevAccmEncoderCount = motorLAccmEncoderCount;
         motorRPrevAccmEncoderCount = motorRAccmEncoderCount;
         prevTime = currTime;
-
         targetLPWM = constrain(targetLPWM, 0, 255);
         targetRPWM = constrain(targetRPWM, 0, 255);
-
         if (motorLRun && abs(motorLAccmEncoderCount) < setPoint)
         {
             md.setM2Speed(LMag * targetLPWM / 255.0 * 400.0);
         }
         else
         {
-            // Serial.println("Left wheel stopped!");
             motorLStop(brakeLevel);
         }
-
         if (motorRRun && abs(motorRAccmEncoderCount) < setPoint)
         {
             md.setM1Speed(RMag * targetRPWM / 255.0 * 400.0);
         }
         else
         {
-            // Serial.println("Right wheel stopped!");
             motorRStop(brakeLevel);
         }
-
         if (!motorLRun && !motorRRun)
         {
             break;
         }
     }
-
-//    Serial.print("x: ");
-//    Serial.print(x);
-//    Serial.print(" y: ");
-//    Serial.print(y);
-//    Serial.print(" angle: ");
-//    Serial.println(currentAngleRad);
 }
 
 PID motorDiffPID(&motorEncoderDiff, &motorDiffOutput, &motorTargetDiff, 1.7, 0.3, 0.7, DIRECT);  //PID that controls the PWM of right motor
-
 void go(float finalLPWM, float finalRPWM, int setPoint, int brakeLevel)
 {
-//    Serial.println("move");
-//    resetMove();
-
     motorDiffPID.Reset();
     motorDiffPID.SetMode(AUTOMATIC);
     motorDiffPID.SetOutputLimits(-2000, 2000);
     motorDiffPID.SetSampleTime(10);// double finalLSpeed = 2.5;
     motorDiffPID.SetTunings(kp, ki, kd);
-    // double finalRSpeed = 2.5;
-    // targetLSpeed = 0;
-    // targetRSpeed = 0;
     double MIN_SPEED = 100;
     double MIN_DISTANCE = 2249 / (6 * PI) / 1.073;
     int BAND_HEIGHT = 20;
     bool pastLowerBandL = false;
     bool pastLowerBandR = false;
-
     float s1 = 0.2, s2 = 0.2;
-//    float e1 = 0.2, e2 = 0.2;
     float k1 = finalLPWM / min(MIN_DISTANCE, (s1 * setPoint));
     float k2 = finalRPWM / min(MIN_DISTANCE, (s2 * setPoint));
-
     targetLPWM = finalLPWM;
     targetRPWM = finalRPWM;
-  
-//    targetLPWM = MIN_SPEED;
-//    targetRPWM = MIN_SPEED;
-
     int count = 0;
     int motorLDiff = 0, motorRDiff = 0;
-
     while (true)
     {
-        // Uncomment only if dynamic obstacle avoidance is needed
-        if (mode != MODE_CALIBRATE && dir == FORWARD && emergencyStopIfNeeded()){
-             Serial.println("pEmergency");
-             return;
-        }
-//        Serial.print("#");
-//        Serial.println(count);
-        
         motorEncoderDiff = motorLAccmEncoderCount - motorRAccmEncoderCount;
         motorLDiff = motorLAccmEncoderCount - motorLPrevAccmEncoderCount;
         motorRDiff = motorRAccmEncoderCount - motorRPrevAccmEncoderCount;
         currTime = millis() + 1;  //Current time since the start of execution. Plus 1 to avoid divide by 0.
         motorLSpeed = motorLDiff / (currTime - prevTime);
         motorRSpeed = motorRDiff / (currTime - prevTime);
-
-//        motorLDiffCm = motorLDiff * CONVERT_LEFT;
-//        motorRDiffCm = motorRDiff * CONVERT_RIGHT;
-//        motorAvgDiffCm = (motorLDiffCm + motorRDiffCm) / 2;
-//
-//        deltaAngleRad = (motorRDiffCm - motorLDiffCm) / WHEELBASE_DIAMETER;
-//        
-//        if(dir == FORWARD){
-//          currentAngleRad += deltaAngleRad;
-//        }else if(dir == CW){
-//          currentAngleRad += PI/2;
-//        }else if(dir == CCW){
-//          currentAngleRad -= PI/2;
-//        }else if(dir == BACK){
-//          currentAngleRad += PI;
-//        }
-//
-//        if(dir == FORWARD){
-//          x += motorAvgDiffCm * cos(deltaAngleRad);
-//          y += motorAvgDiffCm * sin(deltaAngleRad);
-//        }
-        
         motorLPrevAccmEncoderCount = motorLAccmEncoderCount;
         motorRPrevAccmEncoderCount = motorRAccmEncoderCount;
         prevTime = currTime;
-
         motorDiffPID.Compute();
-
         if (pastLowerBandL || pastLowerBandR)
         {
             targetLPWM += motorDiffOutput / 50;
             targetRPWM -= motorDiffOutput / 50;
         }
-
         targetLPWM = constrain(targetLPWM, MIN_SPEED, 255);
         targetRPWM = constrain(targetRPWM, MIN_SPEED, 255);
-
-        // // Prevent something wrong from happening
-        // if(abs(targetLPWM - targetRPWM) > 50){
-        //   // Serial.print("Something went wrong! Debug output: ");
-        //   // Serial.print(count);
-        //   // Serial.print(" ");
-        //   // Serial.print(targetLPWM);
-        //   // Serial.print(" ");
-        //   // Serial.print(targetRPWM);
-        //   // Serial.print(" ");
-        //   // Serial.print(motorLAccmEncoderCount);
-        //   // Serial.print(" ");
-        //   // Serial.print(motorRAccmEncoderCount);
-        //   // Serial.print(" ");
-        //   // Serial.print(motorEncoderDiff);
-        //   // Serial.print(" ");
-        //   // Serial.print(motorDiffOutput);
-        //   robotStop();
-        //   return;
-        // }
-
         if (!pastLowerBandL && targetLPWM >= finalLPWM - BAND_HEIGHT)
             pastLowerBandL = true;
-
         if (!pastLowerBandR && targetRPWM >= finalRPWM - BAND_HEIGHT)
             pastLowerBandR = true;
-
         if (motorLRun && abs(motorLAccmEncoderCount) < setPoint)
         {
             md.setM2Speed(LMag * targetLPWM / 255.0 * 400.0);
@@ -893,7 +590,6 @@ void go(float finalLPWM, float finalRPWM, int setPoint, int brakeLevel)
         {
             motorLStop(brakeLevel);
         }
-
         if (motorRRun && abs(motorRAccmEncoderCount) < setPoint)
         {
             md.setM1Speed(RMag * targetRPWM / 255.0 * 400.0);
@@ -902,177 +598,15 @@ void go(float finalLPWM, float finalRPWM, int setPoint, int brakeLevel)
         {
             motorRStop(brakeLevel);
         }
-
         if (!motorLRun && !motorRRun)
         {
-            // // Serial.println("Move loop ended!");
             break;
         }
 
-        double LIncrement = motorLDiff * k1;
-        double RIncrement = motorRDiff * k2;
-        double avg = (LIncrement + RIncrement) / 2;
-
-//        if (!pastLowerBandL && avg + targetLPWM < finalLPWM)
-//        {
-//            targetLPWM += avg;
-//        }
-//
-//        if (!pastLowerBandR && avg + targetRPWM < finalRPWM)
-//        {
-//            targetRPWM += avg;
-//        }
-
         count++;
-        // // Serial.println("Here!!!");
-
         delay(10);
-
-        // // Serial.println("Here again!!!");
-
     }
-    
-//    Serial.print("x: ");
-//    Serial.print(x);
-//    Serial.print(" y: ");
-//    Serial.print(y);
-//    Serial.print(" angle: ");
-//    Serial.println(currentAngleRad / PI * 180);
-
 }
-
-//void move2(float finalLPWM, float finalRPWM, int setPoint, int brakeLevel)
-//{
-//    resetMove();
-//
-//    double MIN_SPEED = 100;
-//
-//    PID motorDiffPID(&motorEncoderDiff, &motorDiffOutput, &motorTargetDiff, 1.7, 0.3, 0.7, DIRECT);  //PID that controls the PWM of right motor
-//    PID motorLSpeedPID(&currentLPWM, &outputLPWM, &motorLPWMdiff, 1.7, 0.3, 0.7, DIRECT);  //PID that controls the PWM of right motor
-//    PID motorRSpeedPID(&currentRPWM, &outputRPWM, &motorRPWMdiff, 1.7, 0.3, 0.7, DIRECT);  //PID that controls the PWM of right motor
-//
-//    motorDiffPID.SetMode(AUTOMATIC);
-//    motorDiffPID.SetOutputLimits(-2000, 2000);
-//    motorDiffPID.SetSampleTime(10);// double finalLSpeed = 2.5;
-//    motorDiffPID.SetTunings(kp, ki, kd);
-//
-//    motorLSpeedPID.SetMode(AUTOMATIC);
-//    motorLSpeedPID.SetOutputLimits(-255, 255);
-//    motorLSpeedPID.SetSampleTime(10);// double finalLSpeed = 2.5;
-//
-//    motorRSpeedPID.SetMode(AUTOMATIC);
-//    motorRSpeedPID.SetOutputLimits(-255, 255);
-//    motorRSpeedPID.SetSampleTime(10);// double finalLSpeed = 2.5;
-//
-//    // double finalRSpeed = 2.5;
-//    // targetLSpeed = 0;
-//    // targetRSpeed = 0;
-//
-//    currentLPWM = MIN_SPEED;
-//    currentRPWM = MIN_SPEED;
-//
-//    int count = 0;
-//    int motorLDiff = 0, motorRDiff = 0;
-//
-//    float l1 = 0.1, r1 = 0.1;
-//
-//    while (true)
-//    {
-//        // Serial.print("move loop: ");
-//        // Serial.println(count);
-//
-//        // Uncomment only if dynamic obstacle avoidance is needed
-//        // if (mode != MODE_CALIBRATE && dir == FORWARD && emergencyStopIfNeeded()){
-//        //   // Serial.println("pEmergency");
-//        //   return;
-//        // }
-//        targetLPWM = motorLAccmEncoderCount > l1 * setPoint ? finalLPWM - (finalLPWM - MIN_SPEED) * (motorLAccmEncoderCount / (l1 * setPoint) - 1 / l1 + 1) : finalLPWM;
-//        targetRPWM = motorRAccmEncoderCount > r1 * setPoint ? finalRPWM - (finalRPWM - MIN_SPEED) * (motorRAccmEncoderCount / (r1 * setPoint) - 1 / r1 + 1) : finalRPWM;
-//
-//        motorEncoderDiff = motorLAccmEncoderCount - motorRAccmEncoderCount;
-//        motorLDiff = motorLAccmEncoderCount - motorLPrevAccmEncoderCount;
-//        motorRDiff = motorRAccmEncoderCount - motorRPrevAccmEncoderCount;
-//        currTime = millis() + 1;  //Current time since the start of execution. Plus 1 to avoid divide by 0.
-//        motorLSpeed = motorLDiff / (currTime - prevTime);
-//        motorRSpeed = motorRDiff / (currTime - prevTime);
-//        motorLPWMdiff = targetLPWM - currentLPWM;
-//        motorRPWMdiff = targetRPWM - currentRPWM;
-//
-//        motorLDiffCm = motorLDiff * CONVERT_LEFT;
-//        motorRDiffCm = motorRDiff * CONVERT_RIGHT;
-//        motorAvgDiffCm = (motorLDiffCm + motorRDiffCm) / 2;
-//
-//        deltaAngleRad = (motorRDiffCm - motorLDiffCm) / WHEELBASE_DIAMETER;
-//        currentAngleRad += deltaAngleRad;
-//
-//        x += motorAvgDiffCm * cos(deltaAngleRad);
-//        y += motorAvgDiffCm * sin(deltaAngleRad);
-//
-//        motorLPrevAccmEncoderCount = motorLAccmEncoderCount;
-//        motorRPrevAccmEncoderCount = motorRAccmEncoderCount;
-//        prevTime = currTime;
-//
-//        motorDiffPID.Compute();
-//        motorLSpeedPID.Compute();
-//        motorRSpeedPID.Compute();
-//
-//        targetLPWM += outputLPWM + motorDiffOutput / 50;
-//        targetRPWM += outputRPWM - motorDiffOutput / 50;
-//
-//        // #if DEBUG
-//        //   // Serial.print("p##");
-//        //   // Serial.print(count);
-//        //   // Serial.print(" ");
-//        //   // Serial.print(currentLPWM);
-//        //   // Serial.print(" ");
-//        //   // Serial.print(currentRPWM);
-//        //   // Serial.print(" ");
-//        //   // Serial.print(motorLAccmEncoderCount);
-//        //   // Serial.print(" ");
-//        //   // Serial.print(motorRAccmEncoderCount);
-//        //   // Serial.print(" ");
-//        //   // Serial.print(motorEncoderDiff);
-//        //   // Serial.print(" ");
-//        //   // Serial.println(motorDiffOutput);
-//
-//        // #endif
-//
-//        currentLPWM = constrain(currentLPWM, 0, 255);
-//        currentRPWM = constrain(currentRPWM, 0, 255);
-//
-//        // Prevent something wrong from happening
-//        if (abs(currentLPWM - currentRPWM) > 50)
-//        {
-//            // Serial.println("Something went wrong!");
-//            return;
-//        }
-//
-//        if (motorLRun && abs(motorLAccmEncoderCount) < setPoint)
-//        {
-//            md.setM2Speed(LMag * currentLPWM / 255.0 * 400.0);
-//        }
-//        else
-//        {
-//            motorLStop(brakeLevel);
-//        }
-//
-//        if (motorRRun && abs(motorRAccmEncoderCount) < setPoint)
-//        {
-//            md.setM1Speed(RMag * currentRPWM / 255.0 * 400.0);
-//        }
-//        else
-//        {
-//            motorRStop(brakeLevel);
-//        }
-//
-//        if (!motorLRun && !motorRRun)
-//            break;
-//
-//        count++;
-//        delay(10);
-//
-//    }
-//}
 
 void straight(float dist, int brakeLevel, bool withPid, float speedRatio)
 {
@@ -1090,18 +624,11 @@ void straight(float dist, int brakeLevel, bool withPid, float speedRatio)
         LMag = 1;
         RMag = -1;
     }
-    // motorLPWM = LMag * FORWARD_PWM_L;
-    // motorRPWM = RMag * FORWARD_PWM_R;
-
     motorDistChkPt = dist * FORWARD_DIST;
-
     if (dist == 10)
     {
         motorDistChkPt = dist * FORWARD_DIST / FORWARD_DIST_SHORT_FACTOR; // actual lab
-
-        //    motorDistChkPt = dist * 2249 / (6*PI) / 1.055; // student lounge
     }
-
     if (withPid)
         go(motorLPWM, motorRPWM, motorDistChkPt, brakeLevel);
     else
@@ -1110,7 +637,6 @@ void straight(float dist, int brakeLevel, bool withPid, float speedRatio)
 
 void rotate(float angle, byte dir, int brakeLevel, float speedRatio)
 {
-    // Serial.println("rotate");
     resetMove();
     if (dir == CW)
     {
@@ -1128,7 +654,6 @@ void rotate(float angle, byte dir, int brakeLevel, float speedRatio)
         motorRPWM = CCW_PWM_R * speedRatio;
         motorDistChkPt = CCW_RADIUS / 4.0 / 6.0 * 2294 * angle / 90.0;
     }
-
     go(motorLPWM, motorRPWM, motorDistChkPt, brakeLevel);
 }
 
@@ -1140,7 +665,6 @@ void back()
     motorLPWM = BACK_PWM_L;
     motorRPWM = BACK_PWM_R;
     motorDistChkPt = BACK_DIST;
-
     go(motorLPWM, motorRPWM, motorDistChkPt, 400);
 }
 
@@ -1171,3 +695,4 @@ void motorRISRB()      //ISR for left motor encoder interrupt
     motorRNewB = digitalReadFast(MOTOR_R_ENCODER_B);
     motorRNewB ^motorROldA ? motorRNetEncoderCount-- : motorRNetEncoderCount++;
 }
+

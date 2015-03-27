@@ -45,15 +45,16 @@ void loop(){
 //  smoothedVal = smooth(dist, 0.85, smoothedVal);
 //  float dist = pow(data/4120.72436828283,1/-0.93133245362108);
 //    delay(100);
-//    Serial.print(sensor.getDistanceCm());
-//    Serial.print(" ");
+    Serial.print(sensor.getDistance2());
+    Serial.print(" ");
 //    Serial.println(sensor1.getDistanceCm());
 //    Serial.print(" ");
-//    Serial.println(sensor2.getDistanceCm());
+    delay(100);
+    Serial.println(sensor2.getDistance2());
 //  Serial.println(sensor.getDistanceCm());
-    Serial.print(data);
-    Serial.print(" ");
-    Serial.println(data2);
+//    Serial.print(data);
+//    Serial.print(" ");
+//    Serial.println(data2);
 }
 
 float smooth(float data, float filterVal, float smoothedVal) {
