@@ -45,9 +45,9 @@ static int adcTable[][ARRAY_SIZE] =	{
 	{650, 647, 453, 324, 252, 206, 175, 157},
 };
 
-static FastRunningMedian<5> medianCm;
-static FastRunningMedian<1> median;
-static FastRunningMedian<50> medianStable;
+static FastRunningMedian<0> medianCm;
+static FastRunningMedian<0> median;
+static FastRunningMedian<0> medianStable;
 // {401, 234, 170, 131, 107,  85, 71, 57};
 
 // static byte distanceTable[ARRAY_SIZE] =	{10, 13, 16, 20, 23, 26, 30, 33, 36, 40, 43, 46, 50, 53, 56, 60};
@@ -143,17 +143,30 @@ float DistanceGP2Y0A21YK::getDistanceCm() {
 	// }
 }
 
+void DistanceGP2Y0A21YK::resetSmoothing(){
+	smoothedValStable = 0;
+}
+
 float DistanceGP2Y0A21YK::getDistanceCentimeter2() {
-	// modeFilter = ModeFilter();
+	modeFilter = ModeFilter();
 
-	// for(int i = 0; i < MOD_FILTER_SIZE; i++){
-	// 	int raw = getDistanceRaw();
-	// 	modeFilter.insert(raw);
-	// }
+	for(int i = 0; i < MOD_FILTER_SIZE; i++){
+		int raw = getDistanceRaw();
+		modeFilter.insert(raw);
+	}
 	
-	// int adcValue = modeFilter.mode();
+	int adcValue = modeFilter.mode();
 
-	int adcValue = getDistanceRaw();
+	if (smoothedValStable == 0){
+		smoothedValStable = adcValue;
+	}else{
+		smoothedValStable =  smooth(adcValue, 0.5, smoothedValStable);
+	}
+
+	adcValue = smoothedValStable;
+
+
+	// int adcValue = getDistanceRaw();
 	
 	// if (adcValue < adcLowerBoundary[_label]) {	//Distance (in cm) is inversely related to ADC values
 	// 	return (cmUpperBoundary);
@@ -173,7 +186,7 @@ float DistanceGP2Y0A21YK::getDistanceCentimeter2() {
 		return (70);
 	}
 	
-	if (adcValue >= 630 ) {
+	if (adcValue >= 650 ) {
 		return (7);
 	}
 
